@@ -695,8 +695,9 @@ TEMAS_APP = {
         "badge_txt": "#ffffff",
         "icone": "#7C8CA3",
         "icone_bg": "rgba(46,123,255,0.14)",
-        "acao_primaria": "#246BCE",
-        "acao_primaria_hover": "#1D58AA",
+        "acao_primaria": "#3B6D96",
+        "acao_primaria_hover": "#315D82",
+        "foco": "rgba(109, 173, 225, 0.34)",
     },
     "claro": {
         "fundo": "#EEF3FA",
@@ -724,8 +725,9 @@ TEMAS_APP = {
         "badge_txt": "#0C447C",
         "icone": "#7C93AC",
         "icone_bg": "rgba(46,123,255,0.12)",
-        "acao_primaria": "#1F67C1",
-        "acao_primaria_hover": "#18539D",
+        "acao_primaria": "#3B78B4",
+        "acao_primaria_hover": "#2F659A",
+        "foco": "rgba(59, 120, 180, 0.26)",
     },
 }
 
@@ -794,11 +796,12 @@ st.markdown(f"""
      "moldura dentro da moldura" — só uma borda visível, a do painel mesmo. */
   div[data-testid="stVerticalBlockBorderWrapper"] {{
     background: {T['painel_bg']} !important;
-    border: 1px solid {T['painel_borda']} !important;
+    border: none !important;
     border-radius: 18px !important;
-    backdrop-filter: blur(16px);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
     margin: 0 !important;
-    box-shadow: none !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 12px 32px rgba(10,25,40,0.08) !important;
   }}
   div[data-testid="stVerticalBlockBorderWrapper"] > div {{
     margin: 0 !important;
@@ -822,11 +825,12 @@ st.markdown(f"""
   div[data-testid="stTextInput"], div[data-testid="stTextArea"],
   div[data-testid="stDateInput"] > div, div[data-testid="stSelectbox"] > div {{
     background: {T['input_vidro']} !important;
-    border: 1px solid {T['input_borda']} !important;
+    border: none !important;
     border-radius: 12px !important;
     overflow: hidden;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 6px 18px rgba(10,25,40,0.06);
   }}
   div[data-testid="stTextInput"] div, div[data-testid="stTextArea"] div,
   div[data-testid="stDateInput"] div, div[data-testid="stSelectbox"] div,
@@ -847,7 +851,8 @@ st.markdown(f"""
   }}
   div[data-testid="stTextInput"]:focus-within, div[data-testid="stTextArea"]:focus-within,
   div[data-baseweb="input"]:focus-within, div[data-baseweb="textarea"]:focus-within {{
-    border-color: {NEON_1} !important; box-shadow: 0 0 0 3px rgba(46,123,255,0.25) !important;
+    border-color: transparent !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), 0 0 0 3px {T['foco']} !important;
   }}
   /* Ícone de ajuda (?) — some se não forçarmos a cor */
   [data-testid="stTooltipIcon"], [data-testid="stTooltipIcon"] svg,
@@ -904,7 +909,7 @@ st.markdown(f"""
   }}
   .st-key-btn_tema_escuro .stButton > button[kind="secondary"],
   .st-key-btn_tema_claro .stButton > button[kind="secondary"] {{
-    background: {T['input_bg']} !important; border-color: {T['input_borda']} !important;
+    background: {T['input_vidro']} !important; border-color: transparent !important;
   }}
   [class*="st-key-conf_"] .stButton > button {{
     background: #C73B3B !important; border-color: #C73B3B !important;
