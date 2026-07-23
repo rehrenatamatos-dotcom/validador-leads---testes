@@ -679,6 +679,7 @@ TEMAS_APP = {
         "painel_bg": "rgba(24,32,40,0.45)",
         "painel_borda": "rgba(255,255,255,0.08)",
         "input_bg": "#141C24",
+        "input_vidro": "rgba(12, 24, 36, 0.58)",
         "input_borda": "rgba(255,255,255,0.10)",
         "input_txt": "#ffffff",
         "placeholder": "#55698A",
@@ -707,6 +708,7 @@ TEMAS_APP = {
         "painel_bg": "rgba(255,255,255,0.72)",
         "painel_borda": "rgba(255,255,255,0.9)",
         "input_bg": "#ffffff",
+        "input_vidro": "rgba(255, 255, 255, 0.58)",
         "input_borda": "rgba(24,95,165,0.16)",
         "input_txt": "#0C2036",
         "placeholder": "#8CA0B8",
@@ -819,15 +821,18 @@ st.markdown(f"""
      dos campos fica branca. Pinta todo mundo por dentro e deixa só uma borda fora. */
   div[data-testid="stTextInput"], div[data-testid="stTextArea"],
   div[data-testid="stDateInput"] > div, div[data-testid="stSelectbox"] > div {{
+    background: {T['input_vidro']} !important;
     border: 1px solid {T['input_borda']} !important;
     border-radius: 12px !important;
     overflow: hidden;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
   }}
   div[data-testid="stTextInput"] div, div[data-testid="stTextArea"] div,
   div[data-testid="stDateInput"] div, div[data-testid="stSelectbox"] div,
   div[data-baseweb="input"], div[data-baseweb="base-input"],
   div[data-baseweb="textarea"], div[data-baseweb="select"] > div {{
-    background: {T['input_bg']} !important;
+    background: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
   }}
