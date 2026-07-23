@@ -895,10 +895,12 @@ st.markdown(f"""
   .stButton > button[kind="primary"]:hover {{ background: {T['acao_primaria_hover']} !important; box-shadow: none !important; }}
   .stButton > button[kind="primary"] p {{ color: #ffffff !important; }}
   .stDownloadButton > button {{
-    background: linear-gradient(135deg, rgba(46,123,255,0.30), rgba(0,207,255,0.30)) !important;
-    border: 1px solid rgba(46,123,255,0.35) !important; font-weight: 700 !important;
+    background: {T['input_vidro']} !important;
+    border: none !important; font-weight: 700 !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 6px 18px rgba(10,25,40,0.06) !important;
   }}
-  .stDownloadButton > button p {{ color: #ffffff !important; }}
+  .stDownloadButton > button:hover {{ background: {T['painel_bg']} !important; }}
+  .stDownloadButton > button p {{ color: {T['sec_btn_txt']} !important; }}
   .stButton > button[kind="secondary"] {{
     background: {T['sec_btn_bg']} !important; border: 1px solid {T['sec_btn_borda']} !important;
   }}
