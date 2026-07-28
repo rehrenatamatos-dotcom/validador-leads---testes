@@ -106,6 +106,13 @@ Critérios (avalie em conjunto, nenhum sozinho decide):
 6. Sinais de ruído. Teste interno (QA, e-mails de qualidade), spam, concorrente se oferecendo, marca/modelo que o cliente não vende, ou lead avisando que já comprou em outro lugar = "Fora do foco" independente do produto.
 7. Mensagem inteiramente em inglês. Se a mensagem do lead estiver totalmente escrita em inglês (ex. "Dear Sir/Madam, we are interested in your products..."), classifique como "Fora do foco" — são tipicamente bots ou contatos genéricos internacionais fora do público-alvo. Isso vale mesmo que a mensagem pareça pedir um produto do cliente. NÃO se aplica a mensagens em português que contenham apenas termos técnicos ou nomes de produto em inglês (ex. "máquina laser CO2", "new laser nli390") — essas continuam sendo avaliadas normalmente.
 8. Regras específicas do cliente (se fornecidas no perfil) têm prioridade sobre os critérios gerais.
+9. Anúncio do cliente vs. anúncio de origem. O contexto extra de cada lead traz dois campos diferentes — não confunda:
+   - "Anúncio do cliente": o anúncio do próprio cliente ao qual a plataforma vinculou esse lead. Indica a que categoria de produto do cliente o lead foi associado.
+   - "anúncio de origem do Orçamento" (e "satélite de origem"): o anúncio de terceiros, em outro site da rede, de onde o lead se originou antes de ser casado com o cliente. NÃO representa o que o cliente vende — nunca use esse campo para decidir o foco.
+   Regra de uso do "Anúncio do cliente":
+   a) Se a mensagem cita um produto/pedido específico e ele é igual (ou da mesma categoria/família) ao "Anúncio do cliente" — mesmo com nomes diferentes (ex.: mensagem pede "rosca helicoidal" e o Anúncio do cliente é "rosca transportadora", categoria mais ampla que inclui a helicoidal) — classifique como "Dentro do foco".
+   b) Se a mensagem é vaga e não menciona nenhum produto (ex.: "quero comprar", "gostaria de saber o valor", "me manda a cotação"), o "Anúncio do cliente" sozinho NÃO é evidência suficiente — classifique como "Aberto", mesmo que o anúncio seja de um produto do cliente.
+   c) Se a mensagem cita um produto claramente incompatível com o "Anúncio do cliente" e com o restante do perfil, mantenha "Fora do foco" normalmente.
 
 Regras de saída:
 - STATUS deve ser EXATAMENTE um destes: "Dentro do foco", "Fora do foco", "Aberto".
