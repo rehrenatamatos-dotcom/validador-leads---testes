@@ -3,6 +3,7 @@ em negrito e congelado, linhas com altura 21) e os geradores específicos de
 cada auditoria."""
 import io
 
+import pandas as pd
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 
@@ -37,40 +38,52 @@ def ajustar_largura_colunas(ws, largura_min=12, largura_max=60):
         ws.column_dimensions[col[0].column_letter].width = larg
 
 
-def gerar_xlsx_volume(resultado_perdido_df, descartados_df=None, abertos_df=None) -> bytes:
-    """Excel da auditoria de volume: Resumo + Perdidos (dentro do foco) e,
-    se houver filtro de foco aplicado, também Fora de foco (descartado) e
-    Aberto (incerto) — nada some silenciosamente do arquivo."""
-    buffer = io.BytesIO()
-    import pandas as pd
-    from openpyxl.styles import Font as _Font
+def gerar_xlsx_volume(resultado_bruto_df: pd.DataFrame) -> bytes:
+    """Excel da auditoria de volume: aba "Resumo por Produto" (quantos não
+    recebidos por produto, igual já existia) + uma única aba "Não
+    recebidos" com todas as linhas, cada uma colorida pelo status de foco
+    (verde/vermelho/âmbar) quando a IA classificou — mesmo padrão visual do
+    Excel do validador de foco, sem dividir por abas de status."""
+    wb = Workbook()
 
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        if not resultado_perdido_df.empty and "Produto Consultado" in resultado_perdido_df.columns:
-            resumo = (
-                resultado_perdido_df.groupby("Produto Consultado")
-                .size()
-                .reset_index(name="Qtde Perdidos")
-                .sort_values("Qtde Perdidos", ascending=False)
-            )
-        else:
-            resumo = pd.DataFrame(columns=["Produto Consultado", "Qtde Perdidos"])
-        resumo.to_excel(writer, sheet_name="Resumo por Produto", index=False)
-        resultado_perdido_df.to_excel(writer, sheet_name="Perdidos", index=False)
-        if descartados_df is not None and not descartados_df.empty:
-            descartados_df.to_excel(writer, sheet_name="Descartados (fora de foco)", index=False)
-        if abertos_df is not None and not abertos_df.empty:
-            abertos_df.to_excel(writer, sheet_name="Aberto (incerto)", index=False)
+    ws_resumo = wb.active
+    ws_resumo.title = "Resumo por Produto"
+    if not resultado_bruto_df.empty and "Produto Consultado" in resultado_bruto_df.columns:
+        resumo = (
+            resultado_bruto_df.groupby("Produto Consultado")
+            .size()
+            .reset_index(name="Qtde Não Recebidos")
+            .sort_values("Qtde Não Recebidos", ascending=False)
+        )
+    else:
+        resumo = pd.DataFrame(columns=["Produto Consultado", "Qtde Não Recebidos"])
+    ws_resumo.append(list(resumo.columns))
+    for _, linha in resumo.iterrows():
+        ws_resumo.append(list(linha))
+    for cel in ws_resumo[1]:
+        cel.font = Font(bold=True)
+    ajustar_largura_colunas(ws_resumo)
+    formatar_planilha_padrao(ws_resumo)
 
-        for sheet_name in writer.sheets:
-            ws = writer.sheets[sheet_name]
-            ws.freeze_panes = "A2"
-            for cell in ws[1]:
-                cell.font = _Font(bold=True)
-            for row_idx in range(1, ws.max_row + 1):
-                ws.row_dimensions[row_idx].height = 21
+    ws = wb.create_sheet("Não recebidos")
+    colunas = list(resultado_bruto_df.columns)
+    ws.append(colunas)
+    for cel in ws[1]:
+        cel.fill = FILL_CABECALHO
+        cel.font = Font(color="FFFFFF", bold=True)
+    tem_status = "STATUS_IA" in colunas
+    for _, linha in resultado_bruto_df.iterrows():
+        ws.append([linha[c] for c in colunas])
+        if tem_status:
+            fill = FILL_POR_STATUS.get(linha["STATUS_IA"], FILL_ABERTO)
+            for cel in ws[ws.max_row]:
+                cel.fill = fill
+    ajustar_largura_colunas(ws)
+    formatar_planilha_padrao(ws)
 
-    return buffer.getvalue()
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 def gerar_xlsx_validado(cabecalho, registros, leads, classificacoes) -> bytes:
