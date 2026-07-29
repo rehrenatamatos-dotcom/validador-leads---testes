@@ -27,13 +27,13 @@ MODELO_DASH = """<!DOCTYPE html>
   .nav .baixar-imagem { background: transparent; border: 1px solid __SELO_BORDA__; color: __TXT_LOGO__; }
   .hero {
     padding: 24px 36px 20px;
-    background: __HERO_OVERLAY__,
-      url('https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1900&q=70') center/cover no-repeat;
+    background: __HERO_OVERLAY__;
+    border-bottom: 1px solid __BORDA_KPI__;
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
   }
-  .hero h1 { color: __TXT_TITULO__; font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .hero h1 { color: __TXT_TITULO__; font-size: 20px; font-weight: 600; margin-bottom: 4px; }
   .hero p { color: __TXT_SUB__; font-size: 12.5px; }
-  .selo { background: __SELO_BG__; border: 1px solid __SELO_BORDA__; color: __SELO_TXT__; font-size: 12.5px; padding: 7px 16px; border-radius: 30px; }
+  .selo { background: __SELO_BG__; border: 1px solid __SELO_BORDA__; color: __SELO_TXT__; font-size: 12.5px; padding: 7px 16px; border-radius: 8px; }
   .selo b { font-size: 14px; }
   .corpo { padding: 24px 36px 30px; }
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
@@ -166,13 +166,13 @@ MODELO_DASH_COMBINADO = """<!DOCTYPE html>
   .nav .baixar { font-size: 12px; color: __BAIXAR_TXT__; background: __BAIXAR_BG__; padding: 8px 16px; border-radius: 20px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; }
   .hero {
     padding: 24px 36px 20px;
-    background: __HERO_OVERLAY__,
-      url('https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1900&q=70') center/cover no-repeat;
+    background: __HERO_OVERLAY__;
+    border-bottom: 1px solid __BORDA_KPI__;
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
   }
-  .hero h1 { color: __TXT_TITULO__; font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .hero h1 { color: __TXT_TITULO__; font-size: 20px; font-weight: 600; margin-bottom: 4px; }
   .hero p { color: __TXT_SUB__; font-size: 12.5px; }
-  .selo { background: __SELO_BG__; border: 1px solid __SELO_BORDA__; color: __SELO_TXT__; font-size: 12.5px; padding: 7px 16px; border-radius: 30px; }
+  .selo { background: __SELO_BG__; border: 1px solid __SELO_BORDA__; color: __SELO_TXT__; font-size: 12.5px; padding: 7px 16px; border-radius: 8px; }
   .corpo { padding: 24px 36px 30px; }
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
   .kpi { background: __BG_KPI__; border: 1px solid __BORDA_KPI__; border-radius: 14px; padding: 16px 18px; }
