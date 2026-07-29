@@ -1,11 +1,13 @@
 """Auditoria de Cliente — ponto de entrada único.
 
-Reúne, numa ferramenta só, o que antes eram dois apps separados:
-- Volume perdido (quantos orçamentos o cliente deveria ter recebido e não
-  recebeu, por falta de vínculo produto/anúncio/região).
-- Validação de foco (dos leads que o cliente já recebeu, quais são
-  realmente do interesse dele, via IA).
-- Saúde do cliente: tela de síntese que junta as duas auditorias.
+Uma página só de auditoria, com um seletor de modo:
+- Leads recebidos: dos leads que o cliente já recebeu, quais são
+  realmente do interesse dele, via IA.
+- Leads perdidos: quantos orçamentos o cliente deveria ter recebido e não
+  recebeu, por falta de vínculo produto/anúncio/região.
+- Ambos: roda as duas e mostra o funil combinado.
+
+Mais a página de histórico, com as auditorias já rodadas.
 
 Configuração de uma vez só, em Settings > Secrets (Streamlit Cloud) ou
 `.streamlit/secrets.toml` local — ver secrets.exemplo.toml.
@@ -31,9 +33,8 @@ if not metabase_configurado():
     st.stop()
 
 paginas = [
-    st.Page("paginas/saude_cliente.py", title="Saúde do cliente", icon="📋", default=True),
-    st.Page("paginas/auditoria_volume.py", title="Volume perdido", icon="📉"),
-    st.Page("paginas/validador_foco.py", title="Validação de foco", icon="✅"),
+    st.Page("paginas/auditoria.py", title="Auditoria", icon=":material/fact_check:", default=True),
+    st.Page("paginas/historico.py", title="Histórico", icon=":material/history:"),
 ]
 pg = st.navigation(paginas)
 pg.run()
