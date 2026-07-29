@@ -5,7 +5,8 @@ vidro em tudo. Aplicado globalmente para as três páginas terem a mesma
 cara. Chamado uma vez em app.py, antes de `pg.run()`."""
 import streamlit as st
 
-ACENTO = "#2E7BFF"
+FOTO_HERO = "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1900&q=70"
+ACENTO = "#185FA5"  # mesmo primaryColor do .streamlit/config.toml — um azul só em todo canto
 
 TEMAS_APP = {
     "escuro": {
@@ -26,12 +27,13 @@ TEMAS_APP = {
         "hero_titulo": "#F2F4F7",
         "hero_sub": "#8A93A6",
         "icone": ACENTO,
-        "icone_bg": "rgba(46,123,255,0.14)",
+        "icone_bg": "rgba(24,95,165,0.16)",
         "acao_primaria": ACENTO,
-        "acao_primaria_hover": "#1E63D6",
-        "foco": "rgba(46,123,255,0.35)",
+        "acao_primaria_hover": "#134B85",
+        "foco": "rgba(24,95,165,0.35)",
         "sucesso": "#3FB27F", "aviso": "#D9A441", "perigo": "#DB6A5B",
         "borda_hairline": "#1F2530",
+        "hero_tint_1": "rgba(24,95,165,0.7)", "hero_tint_2": "rgba(6,10,16,0.88)",
     },
     "claro": {
         "fundo": "#F7F8FA",
@@ -51,12 +53,13 @@ TEMAS_APP = {
         "hero_titulo": "#10141C",
         "hero_sub": "#5B6472",
         "icone": ACENTO,
-        "icone_bg": "rgba(46,123,255,0.10)",
+        "icone_bg": "rgba(24,95,165,0.10)",
         "acao_primaria": ACENTO,
-        "acao_primaria_hover": "#1E63D6",
-        "foco": "rgba(46,123,255,0.25)",
+        "acao_primaria_hover": "#134B85",
+        "foco": "rgba(24,95,165,0.25)",
         "sucesso": "#1F8F5C", "aviso": "#A9791C", "perigo": "#C0392B",
         "borda_hairline": "#E4E7EC",
+        "hero_tint_1": "rgba(24,95,165,0.55)", "hero_tint_2": "rgba(247,248,250,0.85)",
     },
 }
 
@@ -137,16 +140,30 @@ def aplicar_estilo_global():
   }}
   .topbar .marca .logo-si {{ flex-shrink: 0; }}
 
-  .hero {{ padding: 6px 0 22px; margin-bottom: 6px; border-bottom: 1px solid {T['borda_hairline']}; }}
+  .hero {{
+    position: relative; overflow: hidden; border-radius: 14px;
+    padding: 30px 34px; margin-bottom: 22px; isolation: isolate;
+  }}
+  .hero::before {{
+    content: ""; position: absolute; inset: 0; z-index: 0;
+    background: url('{FOTO_HERO}') center/cover no-repeat;
+    filter: grayscale(1) brightness(0.5);
+  }}
+  .hero::after {{
+    content: ""; position: absolute; inset: 0; z-index: 0;
+    background: linear-gradient(135deg, {T['hero_tint_1']}, {T['hero_tint_2']});
+    mix-blend-mode: color;
+  }}
+  .hero > * {{ position: relative; z-index: 1; }}
   .hero .kicker {{
     font-family: {fonte}; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em;
-    text-transform: uppercase; color: {T['icone']}; margin: 0 0 6px;
+    text-transform: uppercase; color: #ffffff; margin: 0 0 8px; opacity: 0.85;
   }}
   .hero h1 {{
-    color: {T['hero_titulo']}; font-family: {fonte};
-    font-size: 1.55rem; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em;
+    color: #ffffff; font-family: {fonte};
+    font-size: 1.6rem; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em;
   }}
-  .hero p {{ color: {T['hero_sub']}; font-size: 0.92rem; line-height: 1.55; max-width: 620px; margin: 0; }}
+  .hero p {{ color: rgba(255,255,255,0.82); font-size: 0.92rem; line-height: 1.55; max-width: 620px; margin: 0; }}
 
   .painel-titulo {{ display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }}
   .painel-titulo .icone-titulo {{
