@@ -1,79 +1,88 @@
-"""Identidade visual única do app — herdada do Validador de Leads v3 (tema
-"vidro" claro/escuro), aplicada globalmente para as três páginas terem a
-mesma cara. Chamado uma vez em app.py, antes de `pg.run()`."""
+"""Identidade visual única do app — visual "flat", sem depender de fontes
+ou ícones externos (o Google Fonts pode estar bloqueado em rede
+corporativa), com hierarquia por tamanho/peso de texto em vez de efeito de
+vidro em tudo. Aplicado globalmente para as três páginas terem a mesma
+cara. Chamado uma vez em app.py, antes de `pg.run()`."""
 import streamlit as st
 
-FOTO_INDUSTRIA = "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1900&q=70"
-NEON_1, NEON_2 = "#2E7BFF", "#00CFFF"
+ACENTO = "#2E7BFF"
 
 TEMAS_APP = {
     "escuro": {
-        "fundo": "#1B2C3D",
-        "fundo_grad": "radial-gradient(at 0% 0%, rgba(46,123,255,0.16) 0px, transparent 55%), "
-                      "radial-gradient(at 100% 0%, rgba(0,240,255,0.10) 0px, transparent 55%)",
-        "hero_overlay": "linear-gradient(90deg, rgba(11,20,28,0.94), rgba(11,20,28,0.55))",
-        "label": "#EAF3FC",
-        "texto": "#9AA5B8",
-        "painel_bg": "rgba(24,32,40,0.45)",
-        "painel_borda": "rgba(255,255,255,0.08)",
-        "input_bg": "#141C24",
-        "input_vidro": "rgba(12, 24, 36, 0.58)",
-        "input_borda": "rgba(255,255,255,0.10)",
-        "input_txt": "#ffffff",
-        "placeholder": "#55698A",
-        "popover_bg": "#101820",
-        "popover_txt": "#EAF3FC",
+        "fundo": "#0A0E14",
+        "label": "#E7EAEE",
+        "texto": "#8A93A6",
+        "painel_bg": "#12161F",
+        "painel_borda": "#1F2530",
+        "input_bg": "#12161F",
+        "input_borda": "#232A37",
+        "input_txt": "#E7EAEE",
+        "placeholder": "#5B6472",
+        "popover_bg": "#12161F",
+        "popover_txt": "#E7EAEE",
         "sec_btn_bg": "transparent",
-        "sec_btn_borda": "transparent",
-        "sec_btn_txt": "#9AA5B8",
-        "hero_titulo": "#ffffff",
-        "hero_sub": "#B8C6DA",
-        "badge_bg": "rgba(255,255,255,0.06)",
-        "badge_borda": "rgba(255,255,255,0.12)",
-        "badge_txt": "#ffffff",
-        "icone": "#7C8CA3",
+        "sec_btn_borda": "#232A37",
+        "sec_btn_txt": "#8A93A6",
+        "hero_titulo": "#F2F4F7",
+        "hero_sub": "#8A93A6",
+        "icone": ACENTO,
         "icone_bg": "rgba(46,123,255,0.14)",
-        "acao_primaria": "#3B6D96",
-        "acao_primaria_hover": "#315D82",
-        "foco": "rgba(109, 173, 225, 0.34)",
+        "acao_primaria": ACENTO,
+        "acao_primaria_hover": "#1E63D6",
+        "foco": "rgba(46,123,255,0.35)",
+        "sucesso": "#3FB27F", "aviso": "#D9A441", "perigo": "#DB6A5B",
+        "borda_hairline": "#1F2530",
     },
     "claro": {
-        "fundo": "#EEF3FA",
-        "fundo_grad": "radial-gradient(at 0% 0%, rgba(46,123,255,0.08) 0px, transparent 55%), "
-                      "radial-gradient(at 100% 0%, rgba(0,180,255,0.06) 0px, transparent 55%)",
-        "hero_overlay": "linear-gradient(90deg, rgba(230,241,251,0.95), rgba(181,212,244,0.55))",
-        "label": "#0C2036",
-        "texto": "#5C7089",
-        "painel_bg": "rgba(255,255,255,0.72)",
-        "painel_borda": "rgba(255,255,255,0.9)",
-        "input_bg": "#ffffff",
-        "input_vidro": "rgba(255, 255, 255, 0.58)",
-        "input_borda": "rgba(24,95,165,0.16)",
-        "input_txt": "#0C2036",
-        "placeholder": "#8CA0B8",
+        "fundo": "#F7F8FA",
+        "label": "#10141C",
+        "texto": "#5B6472",
+        "painel_bg": "#FFFFFF",
+        "painel_borda": "#E4E7EC",
+        "input_bg": "#FFFFFF",
+        "input_borda": "#DDE1E8",
+        "input_txt": "#10141C",
+        "placeholder": "#9AA2B1",
         "popover_bg": "#FFFFFF",
-        "popover_txt": "#0C2036",
+        "popover_txt": "#10141C",
         "sec_btn_bg": "transparent",
-        "sec_btn_borda": "transparent",
-        "sec_btn_txt": "#0C447C",
-        "hero_titulo": "#0C2036",
-        "hero_sub": "#33475C",
-        "badge_bg": "rgba(255,255,255,0.7)",
-        "badge_borda": "rgba(24,95,165,0.18)",
-        "badge_txt": "#0C447C",
-        "icone": "#7C93AC",
-        "icone_bg": "rgba(46,123,255,0.12)",
-        "acao_primaria": "#3B78B4",
-        "acao_primaria_hover": "#2F659A",
-        "foco": "rgba(59, 120, 180, 0.26)",
+        "sec_btn_borda": "#DDE1E8",
+        "sec_btn_txt": "#10141C",
+        "hero_titulo": "#10141C",
+        "hero_sub": "#5B6472",
+        "icone": ACENTO,
+        "icone_bg": "rgba(46,123,255,0.10)",
+        "acao_primaria": ACENTO,
+        "acao_primaria_hover": "#1E63D6",
+        "foco": "rgba(46,123,255,0.25)",
+        "sucesso": "#1F8F5C", "aviso": "#A9791C", "perigo": "#C0392B",
+        "borda_hairline": "#E4E7EC",
     },
 }
+
+_ICON_PATHS = {
+    "fact_check": '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 12l2 2 4-4"/>',
+    "route": '<circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M6 8.2v3a4 4 0 0 0 4 4h4"/>',
+    "trending_down": '<polyline points="4 7 10 13 13 10 20 17"/><polyline points="20 10 20 17 13 17"/>',
+    "filter_alt": '<path d="M4 5h16l-6 7v6l-4 2v-8z"/>',
+}
+
+
+def icon_svg(nome: str, tamanho: int = 18) -> str:
+    """Ícone outline autocontido (sem depender de fonte externa) — o mesmo
+    conjunto usado nos títulos de painel das três páginas."""
+    caminho = _ICON_PATHS.get(nome, _ICON_PATHS["fact_check"])
+    return (
+        f'<svg viewBox="0 0 24 24" width="{tamanho}" height="{tamanho}" fill="none" '
+        f'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+        f'stroke-linejoin="round">{caminho}</svg>'
+    )
 
 
 def svg_logo_si(cor, fundo):
     """Marca 'Soluções Industriais' recriada em SVG (skyline + smartphone),
     colorida conforme o tema ativo."""
-    return f"""<svg class="logo-si" width="28" height="17" viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg">
+    return f"""<svg class="logo-si" width="26" height="16" viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg">
   <path d="M0 150 L40 95 L60 118 L92 72 L112 100 L132 62 L150 100 L150 150 Z" fill="{cor}"/>
   <path d="M300 150 L260 95 L240 118 L208 72 L188 100 L168 62 L150 100 L150 150 Z" fill="{cor}"/>
   <rect x="16" y="126" width="13" height="10" fill="{cor}"/>
@@ -96,71 +105,61 @@ def tema_ativo():
 
 
 def aplicar_estilo_global():
-    """Injeta o CSS 'vidro' e a barra de marca no topo — chamar 1x em
-    app.py, antes de `pg.run()`, pra todas as páginas herdarem o mesmo
-    visual e o mesmo estado de tema (claro/escuro) compartilhado."""
+    """Injeta o CSS e a barra de marca no topo — chamar 1x em app.py, antes
+    de `pg.run()`, pra todas as páginas herdarem o mesmo visual e o mesmo
+    estado de tema (claro/escuro) compartilhado.
+
+    Usa só a fonte do sistema (nenhum @import externo) — em rede corporativa
+    com Google Fonts bloqueado, o app continua com a aparência prevista em
+    vez de cair para texto sem estilo."""
     tema, T = tema_ativo()
-    logo = svg_logo_si(T["badge_txt"], T["fundo"])
+    logo = svg_logo_si(T["label"], T["fundo"])
+    fonte = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif"
 
     st.markdown(f"""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Geist:wght@400;500&family=JetBrains+Mono:wght@500&display=swap');
-  @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1');
-
   html, body, [data-testid="stAppViewContainer"] {{
     background-color: {T['fundo']};
-    background-image: {T['fundo_grad']};
   }}
   [data-testid="stHeader"] {{ background: transparent; }}
 
-  .block-container {{ max-width: 1180px; padding-top: 1.4rem; padding-bottom: 3rem; font-family: 'Geist', sans-serif; }}
+  .block-container {{ max-width: 1080px; padding-top: 1.2rem; padding-bottom: 3rem; font-family: {fonte}; }}
 
   .block-container label, .block-container [data-testid="stWidgetLabel"] p {{
-    color: {T['label']} !important; font-weight: 600 !important; font-size: 0.82rem !important;
+    color: {T['label']} !important; font-weight: 500 !important; font-size: 0.82rem !important;
   }}
   .block-container p, .block-container .stMarkdown {{ color: {T['texto']}; }}
 
-  .topbar-vidro {{ display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 18px; }}
-  .topbar-vidro .marca {{
-    display: flex; align-items: center; gap: 10px; color: {T['label']};
-    font-family: 'Sora', sans-serif; font-weight: 700; font-size: 14px;
+  .topbar {{ display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 20px; }}
+  .topbar .marca {{
+    display: flex; align-items: center; gap: 9px; color: {T['label']};
+    font-family: {fonte}; font-weight: 600; font-size: 13.5px;
   }}
-  .topbar-vidro .marca .logo-si {{ flex-shrink: 0; }}
+  .topbar .marca .logo-si {{ flex-shrink: 0; }}
 
-  .hero {{
-    background: {T['hero_overlay']}, url('{FOTO_INDUSTRIA}') center/cover no-repeat;
-    border-radius: 20px; padding: 34px 40px; margin-bottom: 20px;
-  }}
-  .hero .badge {{
-    display: inline-flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem; font-weight: 500; letter-spacing: 0.02em;
-    color: {T['badge_txt']}; background: {T['badge_bg']}; border: 1px solid {T['badge_borda']};
-    padding: 4px 13px; border-radius: 999px; margin-bottom: 12px;
-  }}
-  .hero .badge::before {{
-    content: ""; width: 6px; height: 6px; border-radius: 50%; background: {NEON_1}; flex-shrink: 0;
+  .hero {{ padding: 6px 0 22px; margin-bottom: 6px; border-bottom: 1px solid {T['borda_hairline']}; }}
+  .hero .kicker {{
+    font-family: {fonte}; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: {T['icone']}; margin: 0 0 6px;
   }}
   .hero h1 {{
-    color: {T['hero_titulo']}; font-family: 'Sora', sans-serif;
-    font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; margin: 0 0 8px;
+    color: {T['hero_titulo']}; font-family: {fonte};
+    font-size: 1.55rem; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em;
   }}
-  .hero p {{ color: {T['hero_sub']}; font-size: 0.95rem; line-height: 1.5; max-width: 540px; margin: 0; }}
+  .hero p {{ color: {T['hero_sub']}; font-size: 0.92rem; line-height: 1.55; max-width: 620px; margin: 0; }}
 
-  .painel-titulo {{ display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }}
+  .painel-titulo {{ display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }}
   .painel-titulo .icone-titulo {{
-    width: 36px; height: 36px; border-radius: 10px; background: {T['icone_bg']}; color: {NEON_1};
-    display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+    width: 30px; height: 30px; border-radius: 8px; background: {T['icone_bg']}; color: {T['icone']};
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }}
-  .painel-titulo h2 {{ font-family: 'Sora', sans-serif; font-size: 1.05rem; font-weight: 700; }}
+  .painel-titulo h2 {{ font-family: {fonte}; font-size: 0.98rem; font-weight: 600; }}
 
   div[data-testid="stVerticalBlockBorderWrapper"] {{
     background: {T['painel_bg']} !important;
-    border: none !important;
-    border-radius: 18px !important;
-    backdrop-filter: blur(22px) saturate(160%);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid {T['painel_borda']} !important;
+    border-radius: 12px !important;
     margin: 0 !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 12px 32px rgba(10,25,40,0.08) !important;
   }}
   div[data-testid="stVerticalBlockBorderWrapper"] > div {{
     margin: 0 !important;
@@ -168,13 +167,10 @@ def aplicar_estilo_global():
 
   div[data-testid="stTextInput"], div[data-testid="stTextArea"],
   div[data-testid="stDateInput"] > div, div[data-testid="stSelectbox"] > div {{
-    background: {T['input_vidro']} !important;
-    border: none !important;
-    border-radius: 12px !important;
+    background: {T['input_bg']} !important;
+    border: 1px solid {T['input_borda']} !important;
+    border-radius: 8px !important;
     overflow: hidden;
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 6px 18px rgba(10,25,40,0.06);
   }}
   div[data-testid="stTextInput"] div, div[data-testid="stTextArea"] div,
   div[data-testid="stDateInput"] div, div[data-testid="stSelectbox"] div,
@@ -195,8 +191,8 @@ def aplicar_estilo_global():
   }}
   div[data-testid="stTextInput"]:focus-within, div[data-testid="stTextArea"]:focus-within,
   div[data-baseweb="input"]:focus-within, div[data-baseweb="textarea"]:focus-within {{
-    border-color: transparent !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), 0 0 0 3px {T['foco']} !important;
+    border-color: {T['icone']} !important;
+    box-shadow: 0 0 0 3px {T['foco']} !important;
   }}
   [data-testid="stTooltipIcon"], [data-testid="stTooltipIcon"] svg,
   [data-testid="stTooltipHoverTarget"] svg {{
@@ -204,70 +200,62 @@ def aplicar_estilo_global():
   }}
   div[data-testid="stTooltipContent"] {{
     background: {T['popover_bg']} !important; color: {T['popover_txt']} !important;
-    border: 1px solid rgba(120,140,170,0.25) !important; border-radius: 10px !important;
+    border: 1px solid {T['painel_borda']} !important; border-radius: 8px !important;
   }}
   div[data-baseweb="popover"] {{
     background: {T['popover_bg']} !important;
-    border: 1px solid rgba(120,140,170,0.25) !important;
-    border-radius: 14px !important;
+    border: 1px solid {T['painel_borda']} !important;
+    border-radius: 10px !important;
   }}
   div[data-baseweb="popover"] * {{ background: transparent !important; color: {T['popover_txt']} !important; }}
   div[data-baseweb="popover"] li:hover,
   div[data-baseweb="popover"] [aria-selected="true"]:not([role="gridcell"]) {{
-    background: rgba(120,140,170,0.18) !important;
+    background: {T['painel_bg']} !important;
   }}
   div[data-baseweb="calendar"] {{ background: {T['popover_bg']} !important; }}
   div[data-baseweb="calendar"] [role="gridcell"][aria-selected="true"] div {{
-    background: {NEON_1} !important; border-radius: 50% !important; color: #ffffff !important;
+    background: {T['icone']} !important; border-radius: 6px !important; color: #ffffff !important;
   }}
-  div[data-baseweb="calendar"] [role="gridcell"]:hover div {{ background: rgba(120,140,170,0.18) !important; }}
+  div[data-baseweb="calendar"] [role="gridcell"]:hover div {{ background: {T['painel_bg']} !important; }}
 
   .stButton > button, .stDownloadButton > button {{
-    border-radius: 10px !important;
-    transition: background 140ms ease-out, transform 140ms ease-out;
+    border-radius: 8px !important;
+    transition: background 120ms ease-out, border-color 120ms ease-out;
   }}
-  .stButton > button:active, .stDownloadButton > button:active {{ transform: scale(0.97); }}
+  .stButton > button:active, .stDownloadButton > button:active {{ transform: scale(0.98); }}
   .stButton > button[kind="primary"] {{
     background: {T['acao_primaria']} !important; border: 1px solid {T['acao_primaria']} !important;
-    font-weight: 700 !important; box-shadow: none !important;
+    font-weight: 600 !important; box-shadow: none !important;
   }}
-  .stButton > button[kind="primary"]:hover {{ background: {T['acao_primaria_hover']} !important; box-shadow: none !important; }}
+  .stButton > button[kind="primary"]:hover {{ background: {T['acao_primaria_hover']} !important; }}
   .stButton > button[kind="primary"] p {{ color: #ffffff !important; }}
   .stDownloadButton > button {{
-    background: {T['input_vidro']} !important;
-    border: none !important; font-weight: 700 !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 6px 18px rgba(10,25,40,0.06) !important;
+    background: {T['painel_bg']} !important;
+    border: 1px solid {T['painel_borda']} !important; font-weight: 600 !important;
+    box-shadow: none !important;
   }}
-  .stDownloadButton > button:hover {{ background: {T['painel_bg']} !important; }}
+  .stDownloadButton > button:hover {{ border-color: {T['icone']} !important; }}
   .stDownloadButton > button p {{ color: {T['sec_btn_txt']} !important; }}
   .stButton > button[kind="secondary"] {{
     background: {T['sec_btn_bg']} !important; border: 1px solid {T['sec_btn_borda']} !important;
   }}
-  .stButton > button[kind="secondary"]:hover {{ background: {T['painel_bg']} !important; }}
+  .stButton > button[kind="secondary"]:hover {{ border-color: {T['icone']} !important; }}
   .stButton > button[kind="secondary"] p {{ color: {T['sec_btn_txt']} !important; }}
-  .st-key-btn_tema_escuro .stButton > button, .st-key-btn_tema_claro .stButton > button {{
-    min-height: 38px; font-size: 0.82rem !important;
-  }}
-  .st-key-btn_tema_escuro .stButton > button[kind="secondary"],
-  .st-key-btn_tema_claro .stButton > button[kind="secondary"] {{
-    background: {T['input_vidro']} !important; border-color: transparent !important;
-  }}
   [class*="st-key-conf_"] .stButton > button {{
-    background: #C73B3B !important; border-color: #C73B3B !important;
+    background: {T['perigo']} !important; border-color: {T['perigo']} !important;
   }}
-  [class*="st-key-conf_"] .stButton > button:hover {{ background: #A92F2F !important; }}
 
   div[data-testid="stMetric"] {{
     background: {T['painel_bg']} !important;
     border: 1px solid {T['painel_borda']} !important;
-    border-radius: 16px; padding: 16px 18px; backdrop-filter: blur(14px);
+    border-radius: 10px; padding: 14px 16px;
   }}
-  div[data-testid="stMetric"] label {{ color: {T['texto']} !important; font-weight: 600 !important; }}
-  div[data-testid="stMetricValue"] {{ color: {T['label']} !important; font-weight: 700; }}
+  div[data-testid="stMetric"] label {{ color: {T['texto']} !important; font-weight: 500 !important; }}
+  div[data-testid="stMetricValue"] {{ color: {T['label']} !important; font-weight: 600; }}
   div[data-testid="stMetricDelta"] {{ color: {T['texto']} !important; }}
 </style>
 
-<div class="topbar-vidro">
+<div class="topbar">
   <div class="marca">{logo} Soluções Industriais · Auditoria de Cliente</div>
 </div>
 """, unsafe_allow_html=True)
@@ -290,23 +278,23 @@ def seletor_tema():
             st.rerun()
 
 
-def hero(badge: str, titulo: str, subtitulo: str):
-    """Bloco 'hero' com foto de fundo — mesmo componente nas três páginas,
-    só muda o texto."""
+def hero(kicker: str, titulo: str, subtitulo: str):
+    """Cabeçalho de página — texto só, sem foto de fundo (mesmo componente
+    nas três páginas, só muda o texto e diferencia pelo próprio conteúdo)."""
     st.markdown(f"""
 <div class="hero">
-  <span class="badge">{badge}</span>
+  <p class="kicker">{kicker}</p>
   <h1>{titulo}</h1>
   <p>{subtitulo}</p>
 </div>
 """, unsafe_allow_html=True)
 
 
-def titulo_painel(icone_material: str, texto: str):
+def titulo_painel(icone: str, texto: str):
     T = tema_ativo()[1]
     st.markdown(
         f"<div class='painel-titulo'>"
-        f"<span class='icone-titulo material-symbols-outlined'>{icone_material}</span>"
+        f"<span class='icone-titulo'>{icon_svg(icone, 16)}</span>"
         f"<h2 style='margin:0; color:{T['label']};'>{texto}</h2>"
         f"</div>",
         unsafe_allow_html=True,
