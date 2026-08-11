@@ -94,7 +94,8 @@ def _buscar_leads_por_campo(tag_filtro: str, valor: str, data_inicio: str, data_
     return run_card(LEADS_CARD_ID, params)
 
 
-def get_leads_not_received(produto, chave_cliente, data_inicio, data_final, ufs_permitidas, anuncios_bloqueados):
+def get_leads_not_received(produto, chave_cliente, data_inicio, data_final, ufs_permitidas,
+                           anuncios_bloqueados, termos_bloqueados=None):
     df_por_produto = _buscar_leads_por_campo(TAG_PRODUTO, produto, data_inicio, data_final)
     df_por_anuncio = _buscar_leads_por_campo(TAG_ANUNCIO, produto, data_inicio, data_final)
     df = pd.concat([df_por_produto, df_por_anuncio], ignore_index=True)
@@ -125,6 +126,12 @@ def get_leads_not_received(produto, chave_cliente, data_inicio, data_final, ufs_
     if anuncios_bloqueados and not faltantes.empty:
         faltantes = faltantes[~faltantes[COLUNA_ANUNCIO].astype(str).str.strip().isin(anuncios_bloqueados)]
 
+    termos = [normalizar_texto(t) for t in (termos_bloqueados or []) if t.strip()]
+    if termos and not faltantes.empty:
+        nomes_norm = faltantes[COLUNA_ANUNCIO].astype(str).map(normalizar_texto)
+        contem_termo = nomes_norm.apply(lambda nome: any(t in nome for t in termos))
+        faltantes = faltantes[~contem_termo]
+
     if not faltantes.empty:
         faltantes.insert(0, "Produto Consultado", produto)
     return faltantes
@@ -139,7 +146,7 @@ def _coluna_mensagem(df: pd.DataFrame):
 
 def rodar_volume(chave_cliente: str, produtos: list, data_inicio, data_final,
                   regioes_selecionadas: list, anuncios_bloqueados: set,
-                  site: str, obs: str) -> dict:
+                  site: str, obs: str, termos_bloqueados: list = None) -> dict:
     """Roda a auditoria de volume completa (todos os produtos do cliente) e,
     se possível, aplica o filtro de foco por IA nos não recebidos. Todas as
     chamadas st.* aqui aparecem dentro do `st.status(...)` aberto por quem
@@ -154,7 +161,7 @@ def rodar_volume(chave_cliente: str, produtos: list, data_inicio, data_final,
         st.write(f"Consultando leads do produto: {produto}")
         faltantes = get_leads_not_received(
             produto, chave_cliente, data_inicio.isoformat(), data_final.isoformat(),
-            ufs_permitidas, anuncios_bloqueados,
+            ufs_permitidas, anuncios_bloqueados, termos_bloqueados,
         )
         if not faltantes.empty:
             resultados.append(faltantes)

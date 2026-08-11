@@ -20,21 +20,33 @@ FILL_POR_STATUS = {
 }
 
 
+def estilizar_cabecalho(ws):
+    """Cabeçalho azul-escuro com a letra branca em negrito — padrão visual
+    das planilhas geradas."""
+    for cel in ws[1]:
+        cel.fill = FILL_CABECALHO
+        cel.font = Font(color="FFFFFF", bold=True)
+
+
 def formatar_planilha_padrao(ws, altura_linha=21):
-    """Cabeçalho em negrito e congelado, todas as linhas com altura fixa —
-    formatação padrão das duas ferramentas originais."""
+    """Cabeçalho congelado e todas as linhas com altura fixa. Mantém a COR da
+    fonte do cabeçalho (branca) — antes reescrevia como Font(bold=True), que
+    voltava pro preto e apagava a letra branca."""
     ws.freeze_panes = "A2"
     for cell in ws[1]:
-        cell.font = Font(bold=True)
+        cell.font = Font(bold=True, color=cell.font.color)
     for row_idx in range(1, ws.max_row + 1):
         ws.row_dimensions[row_idx].height = altura_linha
 
 
-def ajustar_largura_colunas(ws, largura_min=12, largura_max=60):
+def ajustar_largura_colunas(ws, largura_min=10, largura_max=70):
+    """Ajusta cada coluna ao maior conteúdo (cabeçalho ou dado). Usa uma folga
+    um pouco maior porque o cabeçalho vai em negrito, que ocupa mais espaço."""
     for col in ws.columns:
-        larg = min(largura_max, max(largura_min, max(
-            (len(str(c.value)) if c.value else 0) for c in col
-        ) + 2))
+        comprimentos = [len(str(c.value)) for c in col if c.value is not None]
+        if not comprimentos:
+            continue
+        larg = min(largura_max, max(largura_min, max(comprimentos) + 3))
         ws.column_dimensions[col[0].column_letter].width = larg
 
 
@@ -60,17 +72,14 @@ def gerar_xlsx_volume(resultado_bruto_df: pd.DataFrame) -> bytes:
     ws_resumo.append(list(resumo.columns))
     for _, linha in resumo.iterrows():
         ws_resumo.append(list(linha))
-    for cel in ws_resumo[1]:
-        cel.font = Font(bold=True)
+    estilizar_cabecalho(ws_resumo)
     ajustar_largura_colunas(ws_resumo)
     formatar_planilha_padrao(ws_resumo)
 
     ws = wb.create_sheet("Não recebidos")
     colunas = list(resultado_bruto_df.columns)
     ws.append(colunas)
-    for cel in ws[1]:
-        cel.fill = FILL_CABECALHO
-        cel.font = Font(color="FFFFFF", bold=True)
+    estilizar_cabecalho(ws)
     tem_status = "STATUS_IA" in colunas
     for _, linha in resultado_bruto_df.iterrows():
         ws.append([linha[c] for c in colunas])
@@ -95,9 +104,7 @@ def gerar_xlsx_validado(cabecalho, registros, leads, classificacoes) -> bytes:
     ws.title = "Leads validados"
     colunas = cabecalho + ["STATUS", "MOTIVO"]
     ws.append(colunas)
-    for cel in ws[1]:
-        cel.fill = FILL_CABECALHO
-        cel.font = Font(color="FFFFFF", bold=True)
+    estilizar_cabecalho(ws)
     for i, r in enumerate(registros):
         c = classificacoes.get(leads[i]["id"], {
             "status": "Aberto", "motivo": "Não classificado pela IA — revisar manualmente.",

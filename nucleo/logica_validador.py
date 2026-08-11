@@ -8,6 +8,7 @@ assim que o Streamlit roteia saídas de uma função pra um container, sem
 precisar passar callback explícito."""
 import csv
 import io
+import re
 import time
 from datetime import datetime
 
@@ -29,6 +30,12 @@ MESES_PT = {
     "janeiro": 1, "fevereiro": 2, "março": 3, "marco": 3, "abril": 4, "maio": 5, "junho": 6,
     "julho": 7, "agosto": 8, "setembro": 9, "outubro": 10, "novembro": 11, "dezembro": 12,
 }
+
+
+def _nome_arquivo_seguro(texto):
+    """Remove os caracteres que o Windows não aceita em nome de arquivo
+    (\\ / : * ? " < > |), mantendo espaços e acentos."""
+    return re.sub(r'[\\/:*?"<>|]', "-", texto).strip()
 
 
 def normalizar_data_orcamento(texto):
@@ -276,17 +283,20 @@ def rodar_validacao(chave_unica: str, data_inicio, data_fim, site: str, obs: str
 
     total = len(registros) - duplicados_count
     periodo_txt = f"{data_inicio.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')}"
-    base_nome = f"{nome_empresa} - {data_inicio.isoformat()} a {data_fim.isoformat()}"
+    periodo_arquivo = f"{data_inicio.strftime('%d-%m-%Y')} a {data_fim.strftime('%d-%m-%Y')}"
+    nome_base = _nome_arquivo_seguro(f"VALIDAÇÃO - {nome_empresa} - {chave_unica} - {periodo_arquivo}")
+    xlsx_nome = f"{nome_base}.xlsx"
+    dash_nome = f"{nome_base} - Dashboard.html"
     dash_html = gerar_dashboard_html(nome_empresa, chave_unica, periodo_txt, total, contagem,
                                      melhores=melhores, piores=piores, anuncios_ruins=anuncios_ruins,
                                      tema=tema, xlsx_bytes=xlsx_bytes,
-                                     xlsx_nome=f"{base_nome} - Validado.xlsx")
+                                     xlsx_nome=xlsx_nome)
 
     return {
         "chave": chave_unica, "empresa": nome_empresa, "periodo": periodo_txt,
         "total": total, "contagem": contagem, "falhas": falhas,
         "erro_ia": erros_ia[-1] if erros_ia else "",
-        "anuncios_ruins": anuncios_ruins,
-        "xlsx_bytes": xlsx_bytes, "xlsx_nome": f"{base_nome} - Validado.xlsx",
-        "dash_bytes": dash_html.encode("utf-8"), "dash_nome": f"{base_nome} - Dashboard.html",
+        "anuncios_ruins": anuncios_ruins, "melhores": melhores,
+        "xlsx_bytes": xlsx_bytes, "xlsx_nome": xlsx_nome,
+        "dash_bytes": dash_html.encode("utf-8"), "dash_nome": dash_nome,
     }

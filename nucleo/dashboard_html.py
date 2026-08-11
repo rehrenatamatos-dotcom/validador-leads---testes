@@ -1,11 +1,116 @@
 """Dashboards HTML autocontidos (para download) — um do validador de foco
-(distribuição dos leads recebidos) e um combinado, novo, para a tela de
-saúde do cliente (funil completo: perdidos + recebidos)."""
+(distribuição dos leads recebidos) e um combinado, para a tela de saúde do
+cliente (funil completo: perdidos + recebidos).
+
+Os dois relatórios são 100% offline: o gráfico de rosca é SVG gerado aqui
+(sem depender de CDN como o antigo Chart.js) e a exportação usa o próprio
+navegador (imprimir/salvar PDF), então o arquivo abre igual mesmo sem
+internet ou em rede corporativa que bloqueia CDN.
+
+Os dashboards também são editáveis no próprio arquivo: dá pra ocultar
+campos individuais e, no combinado, mostrar/ocultar tudo que é "leads
+perdidos" (informação interna que não vai pro cliente). Os controles de
+edição nunca aparecem no PDF/imagem exportado."""
 import base64
-import re
+import json
+import math
 from datetime import datetime
+from html import escape as _esc
 
 from nucleo.tema import svg_logo_si
+
+# CSS comum aos dois dashboards (barra de edição, botão ocultar campo, etc.)
+CSS_EDICAO = """
+  .barra-edicao { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 36px; background: __BG_NAV__; border-bottom: 1px solid __BORDA_NAV__; }
+  .barra-edicao .be-titulo { font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: __TXT_LBL__; }
+  .barra-edicao button { font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 20px; border: 1px solid __SELO_BORDA__; background: transparent; color: __TXT_LOGO__; cursor: pointer; }
+  .barra-edicao .be-print { background: __BAIXAR_BG__; color: __BAIXAR_TXT__; border: none; }
+  .switch { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: __TXT_LOGO__; cursor: pointer; user-select: none; }
+  .switch input { width: 16px; height: 16px; accent-color: #1D9E75; cursor: pointer; }
+  [data-bloco] { position: relative; }
+  .btn-x { display: none; position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; border: none; background: #D85A30; color: #fff; cursor: pointer; font-size: 12px; line-height: 1; z-index: 5; }
+  body.modo-edicao .btn-x { display: block; }
+  body.modo-edicao [data-bloco] { outline: 1px dashed rgba(216,90,48,0.55); outline-offset: 2px; }
+  @media print { .no-print { display: none !important; } .btn-x { display: none !important; } body.modo-edicao [data-bloco] { outline: none; } }
+"""
+
+# JS comum: modo "ocultar campos" (✕ em cada bloco) + restaurar tudo.
+SCRIPT_EDICAO = """
+(function () {
+  var editando = false;
+  var btnE = document.getElementById("btn-editar");
+  function marcarBlocos() {
+    document.querySelectorAll("[data-bloco]").forEach(function (el) {
+      if (el.querySelector(":scope > .btn-x")) return;
+      var x = document.createElement("button");
+      x.className = "btn-x"; x.type = "button"; x.textContent = "\\u2715";
+      x.title = "Ocultar este campo";
+      x.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        el.style.display = "none";
+      });
+      el.appendChild(x);
+    });
+  }
+  if (btnE) btnE.addEventListener("click", function () {
+    editando = !editando;
+    document.body.classList.toggle("modo-edicao", editando);
+    btnE.textContent = editando ? "Concluir edicao" : "Ocultar campos";
+    if (editando) marcarBlocos();
+  });
+  var btnR = document.getElementById("btn-restaurar");
+  if (btnR) btnR.addEventListener("click", function () {
+    document.querySelectorAll("[data-bloco]").forEach(function (el) { el.style.display = ""; });
+    document.dispatchEvent(new CustomEvent("restaurar-dash"));
+  });
+})();
+"""
+
+# JS específico do combinado: alterna a visão "com / sem leads perdidos",
+# recalculando o total, o selo e o gráfico de rosca.
+SCRIPT_PERDIDOS = """
+(function () {
+  var D = __DADOS_JSON__;
+  var chk = document.getElementById("chk-perdidos");
+  function desenharRosca(mostrar) {
+    var segs = [["Dentro do foco", D.dentro, D.cores.dentro], ["Fora de foco", D.fora, D.cores.fora]];
+    if (mostrar) segs.unshift(["Perdidos", D.perdidos, D.cores.perdidos]);
+    var total = segs.reduce(function (s, x) { return s + x[1]; }, 0);
+    var C = 2 * Math.PI * 54, acc = 0, aneis = "";
+    if (total <= 0) {
+      aneis = '<circle cx="70" cy="70" r="54" fill="none" stroke="rgba(150,150,150,0.25)" stroke-width="22"/>';
+    } else {
+      segs.forEach(function (x) {
+        if (x[1] <= 0) return;
+        var seg = C * x[1] / total;
+        aneis += '<circle cx="70" cy="70" r="54" fill="none" stroke="' + x[2] + '" stroke-width="22" stroke-dasharray="' + seg.toFixed(2) + ' ' + (C - seg).toFixed(2) + '" stroke-dashoffset="' + (-acc).toFixed(2) + '"/>';
+        acc += seg;
+      });
+    }
+    var leg = "";
+    segs.forEach(function (x) {
+      leg += '<span class="leg-item" style="color:' + D.corLegenda + '"><span class="leg-dot" style="background:' + x[2] + '"></span>' + x[0] + " (" + x[1] + ")</span>";
+    });
+    document.getElementById("grafico-rosca").innerHTML =
+      '<svg viewBox="0 0 140 140" width="170" height="170" style="display:block;margin:0 auto;"><g transform="rotate(-90 70 70)">' + aneis + '</g></svg><div class="legenda">' + leg + "</div>";
+  }
+  function aplicar(mostrar) {
+    document.getElementById("kpi-perdidos").style.display = mostrar ? "" : "none";
+    var pp = document.getElementById("painel-perdidos");
+    if (pp) pp.style.display = mostrar ? "" : "none";
+    var recebidos = D.fora + D.dentro;
+    var total = mostrar ? recebidos + D.perdidos : recebidos;
+    document.getElementById("kpi-total-num").textContent = total;
+    document.getElementById("kpi-total-sub").textContent = mostrar ? "recebidos + perdidos" : "somente recebidos";
+    document.getElementById("selo-total").textContent = total;
+    document.getElementById("selo-total-lbl").textContent = mostrar ? "orcamentos no periodo" : "leads recebidos";
+    desenharRosca(mostrar);
+  }
+  if (chk) chk.addEventListener("change", function () { aplicar(chk.checked); });
+  document.addEventListener("restaurar-dash", function () { if (chk) chk.checked = true; aplicar(true); });
+  aplicar(chk ? chk.checked : true);
+})();
+"""
 
 MODELO_DASH = """<!DOCTYPE html>
 <html lang="pt-BR">
@@ -13,8 +118,6 @@ MODELO_DASH = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Relatório de Validação — __EMPRESA__</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; background: __BG_PAGINA__; }
@@ -24,7 +127,6 @@ MODELO_DASH = """<!DOCTYPE html>
   .nav .logo .logo-si { flex-shrink: 0; }
   .nav .dir { display: flex; align-items: center; gap: 10px; }
   .nav .baixar { font-size: 12px; color: __BAIXAR_TXT__; background: __BAIXAR_BG__; padding: 8px 16px; border-radius: 20px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; }
-  .nav .baixar-imagem { background: transparent; border: 1px solid __SELO_BORDA__; color: __TXT_LOGO__; }
   .hero {
     padding: 24px 36px 20px;
     background: __HERO_OVERLAY__;
@@ -48,7 +150,10 @@ MODELO_DASH = """<!DOCTYPE html>
   .painel h2 .pin { font-size: 11px; padding: 2px 8px; border-radius: 20px; vertical-align: middle; margin-left: 6px; font-weight: 600; }
   .pin-verde { background: rgba(29,158,117,0.18); color: #1D9E75; }
   .pin-verm { background: rgba(216,90,48,0.18); color: #D85A30; }
-  .grafico { height: 210px; position: relative; }
+  .grafico { padding: 6px 0 2px; }
+  .legenda { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 12px; }
+  .leg-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+  .leg-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
   .lista-lead { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid __BORDA_LISTA__; font-size: 12.5px; gap: 10px; }
   .lista-lead:last-child { border-bottom: none; }
   .lista-lead .nome { color: __TXT_NOME_LEAD__; font-weight: 600; display: flex; align-items: center; gap: 8px; }
@@ -62,17 +167,22 @@ MODELO_DASH = """<!DOCTYPE html>
   .barra-cheia { height: 100%; background: #D85A30; border-radius: 5px; }
   .anuncio-linha .qtd { width: 22px; text-align: right; color: __TXT_LBL__; }
   .rodape { text-align: center; color: __TXT_RODAPE__; font-size: 11px; padding: 18px 0 0; }
+__CSS_EDICAO__
   @media (max-width: 760px) { .kpis { grid-template-columns: 1fr 1fr; } .linha { grid-template-columns: 1fr; } }
+  @media print { body { background: #fff; } }
 </style>
 </head>
 <body>
 <div class="tela" id="tela-captura">
   <div class="nav">
     <div class="logo">__LOGO_SI__ Validador de Leads</div>
-    <div class="dir">
-      __BOTAO_EXCEL__
-      <button class="baixar baixar-imagem" id="btnBaixarImagem" type="button">Baixar imagem</button>
-    </div>
+    <div class="dir">__BOTAO_EXCEL__</div>
+  </div>
+  <div class="barra-edicao no-print">
+    <span class="be-titulo">Editar relatório</span>
+    <button id="btn-editar" type="button">Ocultar campos</button>
+    <button id="btn-restaurar" type="button">Restaurar tudo</button>
+    <button class="be-print" type="button" onclick="window.print()">Salvar como PDF / imagem</button>
   </div>
   <div id="area-captura">
     <div class="hero">
@@ -85,29 +195,29 @@ MODELO_DASH = """<!DOCTYPE html>
 
     <div class="corpo">
       <div class="kpis">
-        <div class="kpi"><div class="lbl">Total de leads</div><div class="num">__TOTAL__</div><div class="sub">no período</div></div>
-        <div class="kpi"><div class="lbl">Dentro do foco</div><div class="num v">__PCT_DENTRO__%</div><div class="sub">__N_DENTRO__ leads</div></div>
-        <div class="kpi"><div class="lbl">Fora do foco</div><div class="num r">__PCT_FORA__%</div><div class="sub">__N_FORA__ leads</div></div>
-        <div class="kpi"><div class="lbl">Aberto</div><div class="num a">__PCT_ABERTO__%</div><div class="sub">__N_ABERTO__ leads</div></div>
+        <div class="kpi" data-bloco="Total de leads"><div class="lbl">Total de leads</div><div class="num">__TOTAL__</div><div class="sub">no período</div></div>
+        <div class="kpi" data-bloco="Dentro do foco"><div class="lbl">Dentro do foco</div><div class="num v">__PCT_DENTRO__%</div><div class="sub">__N_DENTRO__ leads</div></div>
+        <div class="kpi" data-bloco="Fora do foco"><div class="lbl">Fora do foco</div><div class="num r">__PCT_FORA__%</div><div class="sub">__N_FORA__ leads</div></div>
+        <div class="kpi" data-bloco="Aberto"><div class="lbl">Aberto</div><div class="num a">__PCT_ABERTO__%</div><div class="sub">__N_ABERTO__ leads</div></div>
       </div>
 
       <div class="linha">
-        <div class="painel">
+        <div class="painel" data-bloco="Distribuição por status">
           <h2>Distribuição por status</h2>
-          <div class="grafico"><canvas id="rosca"></canvas></div>
+          <div class="grafico">__GRAFICO_ROSCA__</div>
         </div>
-        <div class="painel">
+        <div class="painel" data-bloco="Anúncios fora do foco">
           <h2>Anúncios que mais geraram leads fora do foco</h2>
           __LINHAS_ANUNCIOS__
         </div>
       </div>
 
       <div class="linha">
-        <div class="painel">
+        <div class="painel" data-bloco="Melhores leads">
           <h2>Melhores leads <span class="pin pin-verde">dentro do foco</span></h2>
           __LINHAS_MELHORES__
         </div>
-        <div class="painel">
+        <div class="painel" data-bloco="Piores leads">
           <h2>Piores leads <span class="pin pin-verm">fora do foco</span></h2>
           __LINHAS_PIORES__
         </div>
@@ -116,52 +226,27 @@ MODELO_DASH = """<!DOCTYPE html>
   </div>
 </div>
 <p class="rodape">Validador de Leads · Soluções Industriais · uso interno</p>
-<script>
-new Chart(document.getElementById("rosca"), {
-  type: "doughnut",
-  data: {
-    labels: ["Dentro do foco", "Fora do foco", "Aberto"],
-    datasets: [{ data: [__N_DENTRO__, __N_FORA__, __N_ABERTO__], backgroundColor: ["#1D9E75", "#D85A30", "#BA7517"], borderWidth: 0 }]
-  },
-  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { color: "__COR_LEGENDA__", font: { size: 12 } } } } }
-});
-
-document.getElementById("btnBaixarImagem").addEventListener("click", function () {
-  var btn = this;
-  btn.textContent = "Gerando imagem...";
-  html2canvas(document.getElementById("area-captura"), { backgroundColor: "__BG_TELA__", scale: 2, useCORS: true })
-    .then(function (canvas) {
-      var link = document.createElement("a");
-      link.download = "__NOME_IMAGEM__.jpg";
-      link.href = canvas.toDataURL("image/jpeg", 0.92);
-      link.click();
-      btn.textContent = "Baixar imagem";
-    })
-    .catch(function () {
-      btn.textContent = "Erro ao gerar — tente de novo";
-    });
-});
-</script>
+<script>__SCRIPT_EDICAO__</script>
 </body>
 </html>"""
 
 # Modelo do dashboard combinado (Saúde do cliente): funil de 4 KPIs em vez
 # dos 3 do validador isolado — Total no período / Perdidos / Fora de foco /
-# Dentro do foco. Reaproveita os mesmos tokens de cor (TEMAS_DASH).
+# Dentro do foco. Reaproveita os mesmos tokens de cor (TEMAS_DASH), ganhou o
+# gráfico de rosca, o quadro de melhores leads e o botão "leads perdidos".
 MODELO_DASH_COMBINADO = """<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Saúde do cliente — __EMPRESA__</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; background: __BG_PAGINA__; }
   .tela { max-width: 1180px; margin: 0 auto; background: __BG_TELA__; }
   .nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 36px; background: __BG_NAV__; border-bottom: 1px solid __BORDA_NAV__; }
   .nav .logo { display: flex; align-items: center; gap: 10px; color: __TXT_LOGO__; font-weight: 700; font-size: 14px; }
+  .nav .logo .logo-si { flex-shrink: 0; }
   .nav .dir { display: flex; align-items: center; gap: 10px; }
   .nav .baixar { font-size: 12px; color: __BAIXAR_TXT__; background: __BAIXAR_BG__; padding: 8px 16px; border-radius: 20px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; }
   .hero {
@@ -173,6 +258,7 @@ MODELO_DASH_COMBINADO = """<!DOCTYPE html>
   .hero h1 { color: __TXT_TITULO__; font-size: 20px; font-weight: 600; margin-bottom: 4px; }
   .hero p { color: __TXT_SUB__; font-size: 12.5px; }
   .selo { background: __SELO_BG__; border: 1px solid __SELO_BORDA__; color: __SELO_TXT__; font-size: 12.5px; padding: 7px 16px; border-radius: 8px; }
+  .selo b { font-size: 14px; }
   .corpo { padding: 24px 36px 30px; }
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
   .kpi { background: __BG_KPI__; border: 1px solid __BORDA_KPI__; border-radius: 14px; padding: 16px 18px; }
@@ -183,7 +269,18 @@ MODELO_DASH_COMBINADO = """<!DOCTYPE html>
   .linha { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
   .painel { background: __BG_KPI__; border: 1px solid __BORDA_KPI__; border-radius: 14px; padding: 20px 22px; }
   .painel h2 { color: __TXT_NUM__; font-size: 13.5px; font-weight: 700; margin-bottom: 12px; }
-  .grafico { height: 210px; position: relative; }
+  .painel h2 .pin { font-size: 11px; padding: 2px 8px; border-radius: 20px; vertical-align: middle; margin-left: 6px; font-weight: 600; }
+  .pin-verde { background: rgba(29,158,117,0.18); color: #1D9E75; }
+  .grafico { padding: 6px 0 2px; }
+  .legenda { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 12px; }
+  .leg-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+  .leg-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .lista-lead { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid __BORDA_LISTA__; font-size: 12.5px; gap: 10px; }
+  .lista-lead:last-child { border-bottom: none; }
+  .lista-lead .nome { color: __TXT_NOME_LEAD__; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .pin-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .pin-dot-verde { background: #1D9E75; }
+  .lista-lead .email { color: __TXT_EMAIL_LEAD__; font-size: 11.5px; text-align: right; }
   .anuncio-linha { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 12.5px; }
   .anuncio-linha .nome { width: 190px; color: __TXT_NOME_LEAD__; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .barra-fundo { flex: 1; height: 8px; background: __BARRA_FUNDO__; border-radius: 5px; overflow: hidden; }
@@ -191,7 +288,9 @@ MODELO_DASH_COMBINADO = """<!DOCTYPE html>
   .anuncio-linha .qtd { width: 22px; text-align: right; color: __TXT_LBL__; }
   .vazio { color: __TXT_VAZIO__; font-size: 12px; }
   .rodape { text-align: center; color: __TXT_RODAPE__; font-size: 11px; padding: 18px 0 0; }
+__CSS_EDICAO__
   @media (max-width: 760px) { .kpis { grid-template-columns: 1fr 1fr; } .linha { grid-template-columns: 1fr; } }
+  @media print { body { background: #fff; } }
 </style>
 </head>
 <body>
@@ -200,38 +299,54 @@ MODELO_DASH_COMBINADO = """<!DOCTYPE html>
     <div class="logo">__LOGO_SI__ Saúde do cliente</div>
     <div class="dir">__BOTAO_EXCEL__</div>
   </div>
+  <div class="barra-edicao no-print">
+    <label class="switch"><input type="checkbox" id="chk-perdidos" checked> Mostrar leads perdidos</label>
+    <span class="be-titulo">·</span>
+    <button id="btn-editar" type="button">Ocultar campos</button>
+    <button id="btn-restaurar" type="button">Restaurar tudo</button>
+    <button class="be-print" type="button" onclick="window.print()">Salvar como PDF / imagem</button>
+  </div>
   <div id="area-captura">
     <div class="hero">
       <div>
         <h1>__EMPRESA__</h1>
         <p>chave __CHAVE__ &nbsp;·&nbsp; __PERIODO__ &nbsp;·&nbsp; gerado em __GERADO__</p>
       </div>
-      <div class="selo"><b>__TOTAL__</b> orçamentos no período</div>
+      <div class="selo"><b id="selo-total">__TOTAL__</b> <span id="selo-total-lbl">orçamentos no período</span></div>
     </div>
     <div class="corpo">
       <div class="kpis">
-        <div class="kpi"><div class="lbl">Orçamentos no período</div><div class="num">__TOTAL__</div><div class="sub">recebidos + perdidos</div></div>
-        <div class="kpi"><div class="lbl">Perdidos (dentro do foco)</div><div class="num p">__N_PERDIDOS__</div><div class="sub">falta de vínculo</div></div>
-        <div class="kpi"><div class="lbl">Recebidos fora de foco</div><div class="num f">__N_FORA__</div><div class="sub">__PCT_FORA__% dos recebidos</div></div>
-        <div class="kpi"><div class="lbl">Recebidos dentro do foco</div><div class="num d">__N_DENTRO__</div><div class="sub">__PCT_DENTRO__% dos recebidos</div></div>
+        <div class="kpi" data-bloco="Orçamentos no período"><div class="lbl">Orçamentos no período</div><div class="num" id="kpi-total-num">__TOTAL__</div><div class="sub" id="kpi-total-sub">recebidos + perdidos</div></div>
+        <div class="kpi" id="kpi-perdidos"><div class="lbl">Perdidos (dentro do foco)</div><div class="num p">__N_PERDIDOS__</div><div class="sub">falta de vínculo</div></div>
+        <div class="kpi" data-bloco="Recebidos fora de foco"><div class="lbl">Recebidos fora de foco</div><div class="num f">__N_FORA__</div><div class="sub">__PCT_FORA__% dos recebidos</div></div>
+        <div class="kpi" data-bloco="Recebidos dentro do foco"><div class="lbl">Recebidos dentro do foco</div><div class="num d">__N_DENTRO__</div><div class="sub">__PCT_DENTRO__% dos recebidos</div></div>
       </div>
       <div class="linha">
-        <div class="painel">
+        <div class="painel" data-bloco="Distribuição do funil">
+          <h2>Distribuição do funil</h2>
+          <div class="grafico" id="grafico-rosca">__GRAFICO_ROSCA__</div>
+        </div>
+        <div class="painel" data-bloco="Melhores leads">
+          <h2>Melhores leads <span class="pin pin-verde">dentro do foco</span></h2>
+          __LINHAS_MELHORES__
+        </div>
+      </div>
+      <div class="linha">
+        <div class="painel" id="painel-perdidos">
           <h2>Volume perdido · por produto</h2>
           __LINHAS_PRODUTOS_PERDIDOS__
         </div>
-        <div class="painel">
-          <h2>Fora de foco · motivo mais comum</h2>
-          __LINHAS_MOTIVOS_FORA__
+        <div class="painel" data-bloco="Anúncios fora de foco">
+          <h2>Fora de foco · anúncios mais frequentes</h2>
+          __LINHAS_ANUNCIOS_FORA__
         </div>
       </div>
     </div>
   </div>
 </div>
 <p class="rodape">Saúde do cliente · Soluções Industriais · uso interno</p>
-<script>
-document.getElementById("btnBaixarImagem") && document.getElementById("btnBaixarImagem").addEventListener("click", function () {});
-</script>
+<script>__SCRIPT_EDICAO__</script>
+<script>__SCRIPT_PERDIDOS__</script>
 </body>
 </html>"""
 
@@ -267,25 +382,68 @@ TEMAS_DASH = {
 }
 
 
+def _svg_rosca(dados, cor_legenda, tamanho=170):
+    """Gráfico de rosca em SVG puro (sem Chart.js), pra o relatório funcionar
+    offline. `dados` é uma lista de (rótulo, valor, cor)."""
+    total = sum(v for _, v, _ in dados)
+    cx = cy = 70
+    r = 54
+    sw = 22
+    circ = 2 * math.pi * r
+    aneis = []
+    if total <= 0:
+        aneis.append(
+            f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" '
+            f'stroke="rgba(150,150,150,0.25)" stroke-width="{sw}"/>'
+        )
+    else:
+        acumulado = 0.0
+        for _rot, valor, cor in dados:
+            if valor <= 0:
+                continue
+            seg = circ * valor / total
+            aneis.append(
+                f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{cor}" '
+                f'stroke-width="{sw}" stroke-dasharray="{seg:.2f} {circ - seg:.2f}" '
+                f'stroke-dashoffset="{-acumulado:.2f}"/>'
+            )
+            acumulado += seg
+    svg = (
+        f'<svg viewBox="0 0 140 140" width="{tamanho}" height="{tamanho}" '
+        f'role="img" style="display:block; margin:0 auto;">'
+        f'<g transform="rotate(-90 {cx} {cy})">{"".join(aneis)}</g></svg>'
+    )
+    legenda = "<div class='legenda'>"
+    for rotulo, valor, cor in dados:
+        legenda += (
+            f"<span class='leg-item' style='color:{cor_legenda}'>"
+            f"<span class='leg-dot' style='background:{cor}'></span>"
+            f"{_esc(str(rotulo))} ({valor})</span>"
+        )
+    legenda += "</div>"
+    return svg + legenda
+
+
 def _linhas_leads(lista, cor):
     if not lista:
         return "<p class='vazio'>Nenhum lead nesta categoria.</p>"
     out = ""
     for ld in lista:
         out += (f"<div class='lista-lead'><div class='nome'>"
-                f"<span class='pin-dot pin-dot-{cor}'></span>#{ld['id']} · {ld['nome']}</div>"
-                f"<div class='email'>{ld['email']}</div></div>")
+                f"<span class='pin-dot pin-dot-{cor}'></span>"
+                f"#{_esc(str(ld['id']))} · {_esc(str(ld['nome']))}</div>"
+                f"<div class='email'>{_esc(str(ld['email']))}</div></div>")
     return out
 
 
 def _linhas_barras(lista, rotulo_vazio="Sem dados."):
     if not lista:
-        return f"<p class='vazio'>{rotulo_vazio}</p>"
+        return f"<p class='vazio'>{_esc(rotulo_vazio)}</p>"
     maior = max(qtd for _, qtd in lista) or 1
     out = ""
     for nome, qtd in lista:
         largura = round(100 * qtd / maior)
-        out += (f"<div class='anuncio-linha'><div class='nome'>{nome}</div>"
+        out += (f"<div class='anuncio-linha'><div class='nome'>{_esc(str(nome))}</div>"
                 f"<div class='barra-fundo'><div class='barra-cheia' style='width:{largura}%'></div></div>"
                 f"<div class='qtd'>{qtd}</div></div>")
     return out
@@ -296,14 +454,10 @@ def _botao_excel(xlsx_bytes, xlsx_nome):
         return ""
     b64 = base64.b64encode(xlsx_bytes).decode()
     return (
-        f'<a class="baixar" download="{xlsx_nome}" '
+        f'<a class="baixar" download="{_esc(xlsx_nome, quote=True)}" '
         f'href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}">'
         f'Baixar Excel</a>'
     )
-
-
-def _slug(texto):
-    return re.sub(r"[^\w\-]+", "-", texto).strip("-").lower() or "dashboard"
 
 
 def gerar_dashboard_html(empresa, chave, periodo, total, contagem,
@@ -313,11 +467,19 @@ def gerar_dashboard_html(empresa, chave, periodo, total, contagem,
         return str(round(100 * n / total)) if total else "0"
 
     cores = TEMAS_DASH.get(tema, TEMAS_DASH["escuro"])
+    rosca = _svg_rosca(
+        [("Dentro do foco", contagem["Dentro do foco"], "#1D9E75"),
+         ("Fora do foco", contagem["Fora do foco"], "#D85A30"),
+         ("Aberto", contagem["Aberto"], "#BA7517")],
+        cores["COR_LEGENDA"],
+    )
     html = MODELO_DASH
     trocas = {
-        "__EMPRESA__": empresa,
-        "__CHAVE__": chave,
-        "__PERIODO__": periodo,
+        "__CSS_EDICAO__": CSS_EDICAO,
+        "__SCRIPT_EDICAO__": SCRIPT_EDICAO,
+        "__EMPRESA__": _esc(empresa),
+        "__CHAVE__": _esc(chave),
+        "__PERIODO__": _esc(periodo),
         "__GERADO__": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "__TOTAL__": str(total),
         "__PCT_DENTRO__": pct(contagem["Dentro do foco"]),
@@ -326,11 +488,11 @@ def gerar_dashboard_html(empresa, chave, periodo, total, contagem,
         "__N_DENTRO__": str(contagem["Dentro do foco"]),
         "__N_FORA__": str(contagem["Fora do foco"]),
         "__N_ABERTO__": str(contagem["Aberto"]),
+        "__GRAFICO_ROSCA__": rosca,
         "__LINHAS_MELHORES__": _linhas_leads(melhores, "verde"),
         "__LINHAS_PIORES__": _linhas_leads(piores, "verm"),
         "__LINHAS_ANUNCIOS__": _linhas_barras(anuncios_ruins, "Sem dados de anúncio."),
         "__BOTAO_EXCEL__": _botao_excel(xlsx_bytes, xlsx_nome),
-        "__NOME_IMAGEM__": _slug(f"dashboard-{empresa}"),
         "__LOGO_SI__": svg_logo_si(cores["TXT_LOGO"], cores["BG_TELA"]),
     }
     for chave_cor, valor_cor in cores.items():
@@ -341,22 +503,37 @@ def gerar_dashboard_html(empresa, chave, periodo, total, contagem,
 
 
 def gerar_dashboard_combinado(empresa, chave, periodo, total, n_perdidos, n_fora, n_dentro,
-                              produtos_perdidos=None, motivos_fora=None,
+                              produtos_perdidos=None, anuncios_fora=None, melhores=None,
                               tema="escuro", xlsx_bytes=None, xlsx_nome="saude_cliente.xlsx"):
     """Dashboard da tela 'Saúde do cliente' — funil combinado de volume
     perdido + validação de foco, mesmo visual dos dois relatórios
-    individuais (TEMAS_DASH)."""
+    individuais (TEMAS_DASH). Editável no próprio arquivo: dá pra
+    mostrar/ocultar tudo que é leads perdidos e ocultar campos avulsos."""
     recebidos = n_fora + n_dentro
 
     def pct_recebidos(n):
         return str(round(100 * n / recebidos)) if recebidos else "0"
 
     cores = TEMAS_DASH.get(tema, TEMAS_DASH["escuro"])
+    rosca = _svg_rosca(
+        [("Perdidos", n_perdidos, "#D85A30"),
+         ("Fora de foco", n_fora, "#BA7517"),
+         ("Dentro do foco", n_dentro, "#1D9E75")],
+        cores["COR_LEGENDA"],
+    )
+    dados_js = json.dumps({
+        "perdidos": n_perdidos, "fora": n_fora, "dentro": n_dentro,
+        "cores": {"perdidos": "#D85A30", "fora": "#BA7517", "dentro": "#1D9E75"},
+        "corLegenda": cores["COR_LEGENDA"],
+    })
     html = MODELO_DASH_COMBINADO
     trocas = {
-        "__EMPRESA__": empresa,
-        "__CHAVE__": chave,
-        "__PERIODO__": periodo,
+        "__CSS_EDICAO__": CSS_EDICAO,
+        "__SCRIPT_EDICAO__": SCRIPT_EDICAO,
+        "__SCRIPT_PERDIDOS__": SCRIPT_PERDIDOS.replace("__DADOS_JSON__", dados_js),
+        "__EMPRESA__": _esc(empresa),
+        "__CHAVE__": _esc(chave),
+        "__PERIODO__": _esc(periodo),
         "__GERADO__": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "__TOTAL__": str(total),
         "__N_PERDIDOS__": str(n_perdidos),
@@ -364,8 +541,10 @@ def gerar_dashboard_combinado(empresa, chave, periodo, total, n_perdidos, n_fora
         "__N_DENTRO__": str(n_dentro),
         "__PCT_FORA__": pct_recebidos(n_fora),
         "__PCT_DENTRO__": pct_recebidos(n_dentro),
+        "__GRAFICO_ROSCA__": rosca,
+        "__LINHAS_MELHORES__": _linhas_leads(melhores, "verde"),
         "__LINHAS_PRODUTOS_PERDIDOS__": _linhas_barras(produtos_perdidos, "Nenhum orçamento perdido encontrado."),
-        "__LINHAS_MOTIVOS_FORA__": _linhas_barras(motivos_fora, "Nenhum lead fora de foco encontrado."),
+        "__LINHAS_ANUNCIOS_FORA__": _linhas_barras(anuncios_fora, "Nenhum lead fora de foco encontrado."),
         "__BOTAO_EXCEL__": _botao_excel(xlsx_bytes, xlsx_nome),
         "__LOGO_SI__": svg_logo_si(cores["TXT_LOGO"], cores["BG_TELA"]),
     }
