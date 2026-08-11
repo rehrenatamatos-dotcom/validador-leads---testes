@@ -92,9 +92,17 @@ with st.container(border=True, key="au_painel_form"):
             "Onde o cliente atua", options=OPCOES_REGIAO, default=[NACIONAL], key="au_regioes",
             help="Leads fora dessa cobertura não entram na lista de perdidos.",
         )
+        termos_txt = st.text_input(
+            "Bloquear anúncios por palavra-chave (opcional, separe por vírgula)",
+            key="au_termos_bloqueados",
+            help="Ex.: locação, aluguel, assistência — remove da lista de perdidos qualquer anúncio "
+                 "cujo nome contenha esses termos, mesmo sem buscar as sugestões abaixo.",
+        )
+        termos_bloqueados = [t.strip() for t in termos_txt.split(",") if t.strip()]
         st.caption(
-            "Busque os produtos do cliente pra ver sugestões de anúncios de outras empresas "
-            "dentro das mesmas categorias — marque os que não fazem sentido pra esse cliente."
+            "Opcional: busque os produtos do cliente pra ver sugestões de anúncios de outras empresas "
+            "dentro das mesmas categorias — marque os que não fazem sentido pra esse cliente. "
+            "Se pular esta etapa, a auditoria roda direto com os produtos do cliente."
         )
         if st.button("Buscar produtos e sugestões de anúncios", disabled=not chave, key="au_btn_buscar"):
             try:
@@ -146,14 +154,14 @@ with st.container(border=True, key="au_painel_form"):
     else:
         regioes_selecionadas = [NACIONAL]
         anuncios_bloqueados_selecionados = []
+        termos_bloqueados = []
 
     st.divider()
     pronto = bool(chave and data_inicio and data_fim and modo)
-    if quer_perdidos:
-        pronto = pronto and bool(st.session_state.au_produtos)
     rodar = st.button("Rodar auditoria", type="primary", disabled=not pronto, key="au_btn_rodar")
     if quer_perdidos and not st.session_state.au_produtos:
-        st.caption('Busque os produtos do cliente (acima) antes de rodar.')
+        st.caption("Você pode rodar direto — os produtos do cliente serão buscados automaticamente. "
+                   "A busca de anúncios acima é opcional, só pra bloquear anúncios específicos antes.")
 
 if rodar:
     if data_inicio > data_fim:
@@ -167,11 +175,22 @@ if rodar:
         st.session_state.pop("au_resultado_volume", None)
         with st.status("Rodando auditoria de leads perdidos...", expanded=True) as status:
             try:
-                resultado_volume = rodar_volume(
-                    chave, st.session_state.au_produtos, data_inicio, data_fim,
-                    regioes_selecionadas, set(anuncios_bloqueados_selecionados), site, obs,
-                )
-                status.update(label="Auditoria de leads perdidos concluída", state="complete")
+                produtos_volume = st.session_state.au_produtos
+                if not produtos_volume:
+                    st.write("Buscando produtos ativos do cliente...")
+                    produtos_volume = get_client_products(chave)
+                    st.session_state.au_produtos = produtos_volume
+                if not produtos_volume:
+                    status.update(label="Nenhum produto ativo encontrado", state="error")
+                    st.warning("Não encontrei nenhum produto com anúncio ativo para essa chave — "
+                               "não há como auditar leads perdidos.")
+                else:
+                    resultado_volume = rodar_volume(
+                        chave, produtos_volume, data_inicio, data_fim,
+                        regioes_selecionadas, set(anuncios_bloqueados_selecionados), site, obs,
+                        termos_bloqueados=termos_bloqueados,
+                    )
+                    status.update(label="Auditoria de leads perdidos concluída", state="complete")
             except RuntimeError as e:
                 status.update(label="Erro na auditoria de leads perdidos", state="error")
                 st.error(str(e))
@@ -226,7 +245,8 @@ if rodar:
             empresa, resultado_volume["chave"], resultado_volume["periodo"],
             n_dentro + n_fora + n_perdidos, n_perdidos, n_fora, n_dentro,
             produtos_perdidos=resultado_volume.get("produtos_perdidos"),
-            motivos_fora=resultado_validador.get("anuncios_ruins"),
+            anuncios_fora=resultado_validador.get("anuncios_ruins"),
+            melhores=resultado_validador.get("melhores"),
             tema=tema, xlsx_bytes=excel_combinado, xlsx_nome=f"{empresa} - Saude do cliente.xlsx",
         )
         st.session_state["au_resultado_combinado"] = {
