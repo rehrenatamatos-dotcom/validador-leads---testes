@@ -68,13 +68,17 @@ def _params_do_card(card_id: int, headers: dict, url_base: str):
     r.raise_for_status()
     card = r.json()
     mapa, todos = {}, []
-    # 1) parâmetros declarados no card (o que a UI usa)
+    # 1) parâmetros declarados no card (o que a UI usa) — indexa por target,
+    #    slug e name, pra casar mesmo quando os nomes divergem um pouco.
     for p in card.get("parameters") or []:
         pid = p.get("id")
         if not pid:
             continue
         if pid not in todos:
             todos.append(pid)
+        for chave in ("slug", "name"):
+            if p.get(chave):
+                mapa.setdefault(p[chave], pid)
         alvo = p.get("target")
         if isinstance(alvo, list) and len(alvo) >= 2 and isinstance(alvo[1], list):
             mapa.setdefault(alvo[1][-1], pid)
@@ -84,6 +88,9 @@ def _params_do_card(card_id: int, headers: dict, url_base: str):
         pid = tag.get("id")
         if pid:
             mapa.setdefault(nome, pid)
+            for chave in ("name", "display-name"):
+                if tag.get(chave):
+                    mapa.setdefault(tag[chave], pid)
             if pid not in todos:
                 todos.append(pid)
     resultado = (mapa, todos)
@@ -126,17 +133,29 @@ def consultar_question(card_id: int, parametros: list) -> str:
             "Credenciais do Metabase não configuradas. Adicione nos Secrets: "
             "METABASE_URL e (METABASE_API_KEY ou METABASE_USER + METABASE_PASSWORD)."
         )
-    params_mb = [
+    base_params = [
         {"type": tipo, "target": ["variable", ["template-tag", nome]], "value": valor}
         for nome, valor, tipo in parametros
     ]
-    params_mb = _injetar_ids(card_id, headers, url_base, params_mb)
-    r = requests.post(url, headers=headers, data={"parameters": json.dumps(params_mb)}, timeout=120)
+    com_ids = _injetar_ids(card_id, headers, url_base, base_params)
+
+    def _post(params):
+        return requests.post(url, headers=headers, data={"parameters": json.dumps(params)}, timeout=120)
+
+    r = _post(com_ids)
     if r.status_code == 401 and "mb_sessao" in st.session_state:
         del st.session_state["mb_sessao"]           # sessão expirada → renova e tenta de novo
         headers = cabecalhos_metabase()
-        r = requests.post(url, headers=headers, data={"parameters": json.dumps(params_mb)}, timeout=120)
-    r.raise_for_status()
+        r = _post(com_ids)
+    if r.status_code != 200:
+        # última tentativa: sem os ids injetados (algumas versões/consultas não aceitam)
+        r_sem = _post(base_params)
+        if r_sem.status_code == 200:
+            return r_sem.content.decode("utf-8-sig", errors="replace")
+        raise RuntimeError(
+            f"Erro ao consultar a question {card_id} no Metabase (CSV): "
+            f"{r.status_code} - {r.text[:400]}"
+        )
     return r.content.decode("utf-8-sig", errors="replace")
 
 
