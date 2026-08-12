@@ -217,22 +217,30 @@ def rodar_volume(chave_cliente: str, produtos: list, data_inicio, data_final,
                 for idx, row in resultado_bruto.reset_index(drop=True).iterrows()
             ]
             barra_ia = st.progress(0.0, text="Classificando não recebidos por foco...")
-            classificacoes = classificar_lote(
-                perfil, leads_ia, ordem_ia,
-                progresso_callback=lambda feito, total: barra_ia.progress(feito / total if total else 1.0),
-            )
-            barra_ia.empty()
-            filtro_foco_aplicado = True
+            try:
+                classificacoes = classificar_lote(
+                    perfil, leads_ia, ordem_ia,
+                    progresso_callback=lambda feito, total: barra_ia.progress(feito / total if total else 1.0),
+                )
+                filtro_foco_aplicado = True
+            except RuntimeError as e:
+                st.warning(
+                    f"A IA não conseguiu classificar os não recebidos por foco ({e}) — "
+                    "mostrando todos os não recebidos como 'perdido'."
+                )
+            finally:
+                barra_ia.empty()
 
-            resultado_bruto = resultado_bruto.reset_index(drop=True)
-            resultado_bruto["STATUS_IA"] = [
-                classificacoes.get(f"V{i}", {}).get("status", "Aberto")
-                for i in range(len(resultado_bruto))
-            ]
-            resultado_bruto["MOTIVO_IA"] = [
-                classificacoes.get(f"V{i}", {}).get("motivo", "Não classificado pela IA.")
-                for i in range(len(resultado_bruto))
-            ]
+            if filtro_foco_aplicado:
+                resultado_bruto = resultado_bruto.reset_index(drop=True)
+                resultado_bruto["STATUS_IA"] = [
+                    classificacoes.get(f"V{i}", {}).get("status", "Aberto")
+                    for i in range(len(resultado_bruto))
+                ]
+                resultado_bruto["MOTIVO_IA"] = [
+                    classificacoes.get(f"V{i}", {}).get("motivo", "Não classificado pela IA.")
+                    for i in range(len(resultado_bruto))
+                ]
 
     if filtro_foco_aplicado:
         perdido_dentro = resultado_bruto[resultado_bruto["STATUS_IA"] == "Dentro do foco"]

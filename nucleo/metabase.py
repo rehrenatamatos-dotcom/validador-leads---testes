@@ -6,6 +6,7 @@ login/senha (sessão renovada automaticamente se expirar).
 """
 import json
 import os
+import unicodedata
 
 import requests
 import streamlit as st
@@ -44,12 +45,21 @@ def metabase_configurado() -> bool:
     return bool(secret("METABASE_API_KEY") or (secret("METABASE_USER") and secret("METABASE_PASSWORD")))
 
 
-def _mapa_ids_parametros(card_id: int, headers: dict, url_base: str) -> dict:
-    """Busca (e cacheia) os IDs dos parâmetros de um card, por nome do template-tag.
+def _norm_nome(s) -> str:
+    """Normaliza o nome de um parâmetro pra casar sem depender de acento,
+    maiúscula, underscore ou espaço (ex.: 'Chave Única' == 'chave_unica')."""
+    s = unicodedata.normalize("NFKD", str(s))
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return s.lower().replace("_", "").replace(" ", "")
+
+
+def _params_do_card(card_id: int, headers: dict, url_base: str):
+    """Busca (e cacheia) os parâmetros de um card: um mapa {nome_template_tag: id}
+    e a lista de TODOS os ids de parâmetro do card.
 
     As versões novas do Metabase EXIGEM um campo `id` (não-vazio) em cada
     parâmetro do payload — o mesmo que a interface envia. Aqui lemos esse id
-    direto da definição do card, mapeado pelo nome do template-tag.
+    direto da definição do card.
     """
     chave_cache = f"mb_params_{card_id}"
     if chave_cache in st.session_state:
@@ -57,34 +67,48 @@ def _mapa_ids_parametros(card_id: int, headers: dict, url_base: str) -> dict:
     r = requests.get(f"{url_base}/api/card/{card_id}", headers=headers, timeout=30)
     r.raise_for_status()
     card = r.json()
-    mapa = {}
+    mapa, todos = {}, []
     # 1) parâmetros declarados no card (o que a UI usa)
     for p in card.get("parameters") or []:
+        pid = p.get("id")
+        if not pid:
+            continue
+        if pid not in todos:
+            todos.append(pid)
         alvo = p.get("target")
         if isinstance(alvo, list) and len(alvo) >= 2 and isinstance(alvo[1], list):
-            nome = alvo[1][-1]
-            if p.get("id"):
-                mapa[nome] = p["id"]
+            mapa.setdefault(alvo[1][-1], pid)
     # 2) template-tags da query nativa (fonte mais confiável do id)
     tags = ((card.get("dataset_query") or {}).get("native") or {}).get("template-tags") or {}
     for nome, tag in tags.items():
-        if tag.get("id"):
-            mapa.setdefault(nome, tag["id"])
-    st.session_state[chave_cache] = mapa
-    return mapa
+        pid = tag.get("id")
+        if pid:
+            mapa.setdefault(nome, pid)
+            if pid not in todos:
+                todos.append(pid)
+    resultado = (mapa, todos)
+    st.session_state[chave_cache] = resultado
+    return resultado
 
 
 def _injetar_ids(card_id: int, headers: dict, url_base: str, params_mb: list) -> list:
-    """Adiciona o campo `id` em cada parâmetro, casando pelo nome do template-tag."""
-    mapa = _mapa_ids_parametros(card_id, headers, url_base)
+    """Adiciona o campo `id` em cada parâmetro. Casa pelo nome do template-tag
+    (tolerante a acento/maiúscula/underscore) e, se o card tem um único
+    parâmetro, usa esse id mesmo que o nome não bata exatamente."""
+    mapa, todos = _params_do_card(card_id, headers, url_base)
+    mapa_norm = {_norm_nome(k): v for k, v in mapa.items()}
     resultado = []
     for p in params_mb:
         novo = dict(p)
         alvo = p.get("target")
-        if isinstance(alvo, list) and len(alvo) >= 2 and isinstance(alvo[1], list):
-            nome = alvo[1][-1]
-            if nome in mapa:
-                novo["id"] = mapa[nome]
+        nome = alvo[1][-1] if (isinstance(alvo, list) and len(alvo) >= 2 and isinstance(alvo[1], list)) else None
+        pid = None
+        if nome is not None:
+            pid = mapa.get(nome) or mapa_norm.get(_norm_nome(nome))
+        if pid is None and len(todos) == 1:
+            pid = todos[0]
+        if pid is not None:
+            novo["id"] = pid
         resultado.append(novo)
     return resultado
 

@@ -3,9 +3,9 @@
 cliente (funil completo: perdidos + recebidos).
 
 Os dois relatórios são 100% offline: o gráfico de rosca é SVG gerado aqui
-(sem depender de CDN como o antigo Chart.js) e a exportação usa o próprio
-navegador (imprimir/salvar PDF), então o arquivo abre igual mesmo sem
-internet ou em rede corporativa que bloqueia CDN.
+(sem depender de CDN como o antigo Chart.js) e a exportação (Baixar imagem /
+salvar PDF) usa a lib html2canvas embutida no próprio arquivo — então tudo
+abre e funciona igual mesmo sem internet ou em rede que bloqueia CDN.
 
 Os dashboards também são editáveis no próprio arquivo: dá pra ocultar
 campos individuais e, no combinado, mostrar/ocultar tudo que é "leads
@@ -16,8 +16,42 @@ import json
 import math
 from datetime import datetime
 from html import escape as _esc
+from pathlib import Path
 
 from nucleo.tema import svg_logo_si
+
+# html2canvas 1.4.1 (MIT) vendorizado ao lado deste módulo, embutido inline em
+# cada dashboard pra o "Baixar imagem" funcionar offline.
+_HTML2CANVAS_JS = (Path(__file__).with_name("html2canvas.min.js")).read_text(encoding="utf-8")
+
+# JS do botão "Baixar imagem": rasteriza a área do relatório (sem a barra de
+# controles) e baixa um JPG. __NOME_IMAGEM__ e __BG_TELA__ são trocados depois.
+SCRIPT_IMAGEM = """
+(function () {
+  var btn = document.getElementById("btn-imagem");
+  if (!btn) return;
+  btn.addEventListener("click", function () {
+    var original = btn.textContent;
+    btn.textContent = "Gerando imagem...";
+    // Sai do modo de edicao durante a captura pra os ✕ e o contorno tracejado
+    // nao aparecerem na imagem. Campos que voce ocultou continuam ocultos, e a
+    // visao de leads perdidos e capturada exatamente como esta na tela.
+    var estavaEditando = document.body.classList.contains("modo-edicao");
+    document.body.classList.remove("modo-edicao");
+    function restaurar() { if (estavaEditando) document.body.classList.add("modo-edicao"); }
+    html2canvas(document.getElementById("area-captura"), { backgroundColor: "__BG_TELA__", scale: 2, useCORS: true })
+      .then(function (canvas) {
+        var link = document.createElement("a");
+        link.download = "__NOME_IMAGEM__.jpg";
+        link.href = canvas.toDataURL("image/jpeg", 0.92);
+        link.click();
+        restaurar();
+        btn.textContent = original;
+      })
+      .catch(function () { restaurar(); btn.textContent = "Erro ao gerar — tente de novo"; });
+  });
+})();
+"""
 
 # CSS comum aos dois dashboards (barra de edição, botão ocultar campo, etc.)
 CSS_EDICAO = """
@@ -91,8 +125,9 @@ SCRIPT_PERDIDOS = """
     segs.forEach(function (x) {
       leg += '<span class="leg-item" style="color:' + D.corLegenda + '"><span class="leg-dot" style="background:' + x[2] + '"></span>' + x[0] + " (" + x[1] + ")</span>";
     });
-    document.getElementById("grafico-rosca").innerHTML =
-      '<svg viewBox="0 0 140 140" width="170" height="170" style="display:block;margin:0 auto;"><g transform="rotate(-90 70 70)">' + aneis + '</g></svg><div class="legenda">' + leg + "</div>";
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" width="170" height="170"><g transform="rotate(-90 70 70)">' + aneis + '</g></svg>';
+    var img = '<img src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) + '" width="170" height="170" alt="Grafico de rosca" style="display:block;margin:0 auto;">';
+    document.getElementById("grafico-rosca").innerHTML = img + '<div class="legenda">' + leg + "</div>";
   }
   function aplicar(mostrar) {
     document.getElementById("kpi-perdidos").style.display = mostrar ? "" : "none";
@@ -182,7 +217,8 @@ __CSS_EDICAO__
     <span class="be-titulo">Editar relatório</span>
     <button id="btn-editar" type="button">Ocultar campos</button>
     <button id="btn-restaurar" type="button">Restaurar tudo</button>
-    <button class="be-print" type="button" onclick="window.print()">Salvar como PDF / imagem</button>
+    <button class="be-print" id="btn-imagem" type="button">Baixar imagem</button>
+    <button type="button" onclick="window.print()">Salvar PDF</button>
   </div>
   <div id="area-captura">
     <div class="hero">
@@ -226,7 +262,9 @@ __CSS_EDICAO__
   </div>
 </div>
 <p class="rodape">Validador de Leads · Soluções Industriais · uso interno</p>
+<script>__HTML2CANVAS__</script>
 <script>__SCRIPT_EDICAO__</script>
+<script>__SCRIPT_IMAGEM__</script>
 </body>
 </html>"""
 
@@ -304,7 +342,8 @@ __CSS_EDICAO__
     <span class="be-titulo">·</span>
     <button id="btn-editar" type="button">Ocultar campos</button>
     <button id="btn-restaurar" type="button">Restaurar tudo</button>
-    <button class="be-print" type="button" onclick="window.print()">Salvar como PDF / imagem</button>
+    <button class="be-print" id="btn-imagem" type="button">Baixar imagem</button>
+    <button type="button" onclick="window.print()">Salvar PDF</button>
   </div>
   <div id="area-captura">
     <div class="hero">
@@ -345,8 +384,10 @@ __CSS_EDICAO__
   </div>
 </div>
 <p class="rodape">Saúde do cliente · Soluções Industriais · uso interno</p>
+<script>__HTML2CANVAS__</script>
 <script>__SCRIPT_EDICAO__</script>
 <script>__SCRIPT_PERDIDOS__</script>
+<script>__SCRIPT_IMAGEM__</script>
 </body>
 </html>"""
 
@@ -409,9 +450,14 @@ def _svg_rosca(dados, cor_legenda, tamanho=170):
             )
             acumulado += seg
     svg = (
-        f'<svg viewBox="0 0 140 140" width="{tamanho}" height="{tamanho}" '
-        f'role="img" style="display:block; margin:0 auto;">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" '
+        f'width="{tamanho}" height="{tamanho}">'
         f'<g transform="rotate(-90 {cx} {cy})">{"".join(aneis)}</g></svg>'
+    )
+    b64 = base64.b64encode(svg.encode("utf-8")).decode()
+    img = (
+        f'<img src="data:image/svg+xml;base64,{b64}" width="{tamanho}" height="{tamanho}" '
+        f'alt="Gráfico de rosca" style="display:block; margin:0 auto;">'
     )
     legenda = "<div class='legenda'>"
     for rotulo, valor, cor in dados:
@@ -421,7 +467,7 @@ def _svg_rosca(dados, cor_legenda, tamanho=170):
             f"{_esc(str(rotulo))} ({valor})</span>"
         )
     legenda += "</div>"
-    return svg + legenda
+    return img + legenda
 
 
 def _linhas_leads(lista, cor):
@@ -460,6 +506,13 @@ def _botao_excel(xlsx_bytes, xlsx_nome):
     )
 
 
+def _nome_imagem(texto):
+    """Nome de arquivo seguro para o JPG do 'Baixar imagem' (sem espaços nem
+    símbolos que a JS possa quebrar em atributo download)."""
+    limpo = "".join(c if c.isalnum() else "-" for c in texto).strip("-")
+    return limpo or "dashboard"
+
+
 def gerar_dashboard_html(empresa, chave, periodo, total, contagem,
                          melhores=None, piores=None, anuncios_ruins=None,
                          tema="escuro", xlsx_bytes=None, xlsx_nome="leads.xlsx"):
@@ -476,7 +529,9 @@ def gerar_dashboard_html(empresa, chave, periodo, total, contagem,
     html = MODELO_DASH
     trocas = {
         "__CSS_EDICAO__": CSS_EDICAO,
+        "__HTML2CANVAS__": _HTML2CANVAS_JS,
         "__SCRIPT_EDICAO__": SCRIPT_EDICAO,
+        "__SCRIPT_IMAGEM__": SCRIPT_IMAGEM.replace("__NOME_IMAGEM__", _nome_imagem(f"Validacao-{empresa}")),
         "__EMPRESA__": _esc(empresa),
         "__CHAVE__": _esc(chave),
         "__PERIODO__": _esc(periodo),
@@ -529,7 +584,9 @@ def gerar_dashboard_combinado(empresa, chave, periodo, total, n_perdidos, n_fora
     html = MODELO_DASH_COMBINADO
     trocas = {
         "__CSS_EDICAO__": CSS_EDICAO,
+        "__HTML2CANVAS__": _HTML2CANVAS_JS,
         "__SCRIPT_EDICAO__": SCRIPT_EDICAO,
+        "__SCRIPT_IMAGEM__": SCRIPT_IMAGEM.replace("__NOME_IMAGEM__", _nome_imagem(f"Saude-cliente-{empresa}")),
         "__SCRIPT_PERDIDOS__": SCRIPT_PERDIDOS.replace("__DADOS_JSON__", dados_js),
         "__EMPRESA__": _esc(empresa),
         "__CHAVE__": _esc(chave),

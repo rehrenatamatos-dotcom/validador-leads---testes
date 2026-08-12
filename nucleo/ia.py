@@ -106,12 +106,16 @@ def _tentar_modelo(url, api_key, modelo, conteudo_user):
         ],
     }
     ultima = None
+    limite_estourado = False
     for tentativa in range(1, MAX_TENTATIVAS + 1):
         try:
             r = requests.post(url, json=corpo, headers={"Authorization": f"Bearer {api_key}"}, timeout=120)
             if r.status_code in (400, 404):
                 return "404", None                      # modelo indisponível: tenta o próximo
+            if r.status_code in (401, 403):
+                return "auth", None                     # chave inválida/não autorizada: não adianta repetir
             if r.status_code == 429 or r.status_code >= 500:
+                limite_estourado = r.status_code == 429  # 429 = limite/cota do provedor estourou
                 try:
                     espera = float(r.headers.get("retry-after", 0))
                 except (TypeError, ValueError):
@@ -126,6 +130,8 @@ def _tentar_modelo(url, api_key, modelo, conteudo_user):
         except Exception as e:
             ultima = e
             time.sleep(2)
+    if limite_estourado:
+        return "cota", 0                                # esgotou as tentativas em 429: trata como cota
     return None, ultima
 
 
@@ -139,6 +145,7 @@ def chamar_ia(perfil, lote, ordem, modelo_forcado=None):
     conteudo_user = f"PERFIL DO CLIENTE:\n{perfil}\n\nLEADS A CLASSIFICAR:\n{leads_texto}"
     ultima = None
     esgotados = []
+    sem_autorizacao = []
     for i, nome in enumerate(ordem):
         cfg = PROVEDORES[nome]
         api_key = secret(cfg["chave"])
@@ -156,6 +163,9 @@ def chamar_ia(perfil, lote, ordem, modelo_forcado=None):
                 return resultado
             if resultado == "404":
                 continue
+            if resultado == "auth":
+                sem_autorizacao.append(nome)
+                break
             if resultado == "cota":
                 esgotados.append(nome)
                 cota_estourou = True
@@ -163,6 +173,12 @@ def chamar_ia(perfil, lote, ordem, modelo_forcado=None):
             ultima = err
         if cota_estourou:
             continue
+    if sem_autorizacao and set(esgotados) | set(sem_autorizacao) >= set(ordem):
+        raise RuntimeError(
+            "Chave de IA inválida ou não autorizada em: "
+            f"{', '.join(sorted(set(sem_autorizacao)))} (erro 401/403). Confira/atualize essa "
+            "chave nos Secrets (CEREBRAS_API_KEY, GROQ_API_KEY, SAMBANOVA_API_KEY ou GEMINI_API_KEY)."
+        )
     if esgotados and len(esgotados) == len(ordem):
         raise RuntimeError(
             "Cota diária esgotada em todos os provedores de IA configurados "
@@ -190,7 +206,12 @@ def classificar_lote(perfil, leads, ordem_ia, modelo_forcado=None, tamanho_lote=
         total_lotes = (len(lista) + tam - 1) // tam
         for n in range(total_lotes):
             lote = lista[n * tam:(n + 1) * tam]
-            resultado = chamar_ia(perfil, lote, ordem_ia, modelo_forcado)
+            try:
+                resultado = chamar_ia(perfil, lote, ordem_ia, modelo_forcado)
+            except RuntimeError:
+                raise                        # cota/config: deixa subir pra quem chamou tratar
+            except Exception:
+                resultado = []               # erro pontual (HTTP, timeout): pula o lote
             for item in resultado:
                 status = str(item.get("status", "")).strip()
                 if status not in STATUS_VALIDOS:
