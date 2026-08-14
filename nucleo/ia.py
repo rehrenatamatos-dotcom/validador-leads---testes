@@ -9,39 +9,42 @@ import requests
 
 from nucleo.metabase import secret
 
+# Ordem importa: os provedores são tentados de cima pra baixo. Deixamos os que
+# têm modelo grátis funcionando (Groq, Gemini) primeiro. Modelos indisponíveis/
+# bloqueados/pagos são pulados automaticamente (ver _tentar_modelo).
 PROVEDORES = {
-    "cerebras": {
-        "url": "https://api.cerebras.ai/v1/chat/completions",
-        "chave": "CEREBRAS_API_KEY",
-        "modelos": ["llama-3.3-70b", "llama3.1-8b", "gpt-oss-120b"],
-    },
     "groq": {
         "url": "https://api.groq.com/openai/v1/chat/completions",
         "chave": "GROQ_API_KEY",
-        "modelos": ["openai/gpt-oss-20b", "llama-3.1-8b-instant",
-                    "llama-3.3-70b-versatile", "openai/gpt-oss-120b"],
-    },
-    "sambanova": {
-        "url": "https://api.sambanova.ai/v1/chat/completions",
-        "chave": "SAMBANOVA_API_KEY",
-        "modelos": ["Meta-Llama-3.3-70B-Instruct", "Meta-Llama-3.1-8B-Instruct", "Qwen2.5-72B-Instruct"],
+        "modelos": ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "openai/gpt-oss-20b"],
     },
     "gemini": {
         "url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
         "chave": "GEMINI_API_KEY",
-        "modelos": ["gemini-2.0-flash", "gemini-1.5-flash"],
+        "modelos": ["gemini-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash"],
+    },
+    "openrouter": {
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "chave": "OPENROUTER_API_KEY",
+        "modelos": ["openai/gpt-oss-20b:free", "nvidia/nemotron-3-super-120b-a12b:free",
+                    "google/gemma-4-31b-it:free"],
+    },
+    "cerebras": {
+        "url": "https://api.cerebras.ai/v1/chat/completions",
+        "chave": "CEREBRAS_API_KEY",
+        "modelos": ["gpt-oss-120b", "zai-glm-4.7", "gemma-4-31b"],
+    },
+    "sambanova": {  # exige cobrança nesta conta (todos os modelos = 402); só usado se houver chave
+        "url": "https://api.sambanova.ai/v1/chat/completions",
+        "chave": "SAMBANOVA_API_KEY",
+        "modelos": ["Meta-Llama-3.3-70B-Instruct", "gpt-oss-120b", "DeepSeek-V3.1"],
     },
 }
 
 MODELOS_ESCOLHA = {
     "Automático (recomendado)": None,
-    "Rápido · Cerebras Llama 3.1 8B": ("cerebras", "llama3.1-8b"),
-    "Rápido · Groq GPT-OSS 20B": ("groq", "openai/gpt-oss-20b"),
-    "Equilíbrio · Cerebras Llama 3.3 70B": ("cerebras", "llama-3.3-70b"),
-    "Equilíbrio · Groq Llama 3.3 70B": ("groq", "llama-3.3-70b-versatile"),
-    "Preciso · Groq GPT-OSS 120B": ("groq", "openai/gpt-oss-120b"),
-    "Equilíbrio · SambaNova Llama 3.3 70B": ("sambanova", "Meta-Llama-3.3-70B-Instruct"),
-    "Rápido · Gemini 2.0 Flash": ("gemini", "gemini-2.0-flash"),
+    "Groq · Llama 3.3 70B": ("groq", "llama-3.3-70b-versatile"),
+    "Gemini · Flash (mais recente)": ("gemini", "gemini-flash-latest"),
 }
 
 TAMANHO_LOTE = 20
@@ -79,8 +82,9 @@ Regras de saída:
 
 
 def provedores_ativos() -> list:
-    """Retorna a lista de provedores com chave configurada (Cerebras primeiro)."""
-    return [n for n in ("cerebras", "groq", "sambanova", "gemini") if secret(PROVEDORES[n]["chave"])]
+    """Retorna a lista de provedores com chave configurada, na ordem de
+    tentativa — os que costumam ter modelo grátis funcionando primeiro."""
+    return [n for n in ("groq", "gemini", "openrouter", "cerebras", "sambanova") if secret(PROVEDORES[n]["chave"])]
 
 
 def _extrair_lista(parsed):
@@ -110,10 +114,10 @@ def _tentar_modelo(url, api_key, modelo, conteudo_user):
     for tentativa in range(1, MAX_TENTATIVAS + 1):
         try:
             r = requests.post(url, json=corpo, headers={"Authorization": f"Bearer {api_key}"}, timeout=120)
-            if r.status_code in (400, 404):
-                return "404", None                      # modelo indisponível: tenta o próximo
-            if r.status_code in (401, 403):
-                return "auth", None                     # chave inválida/não autorizada: não adianta repetir
+            if r.status_code in (400, 402, 403, 404):
+                return "404", None                      # modelo indisponível/bloqueado/pago: tenta o próximo
+            if r.status_code == 401:
+                return "auth", None                     # só 401 = chave inválida: não adianta repetir
             if r.status_code == 429 or r.status_code >= 500:
                 limite_estourado = r.status_code == 429  # 429 = limite/cota do provedor estourou
                 try:
